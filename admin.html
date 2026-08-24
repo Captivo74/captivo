@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Administration — Captivo</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="manifest" href="admin-manifest.json">
+<meta name="theme-color" content="#061020">
+<link rel="icon" href="icons/admin-icon-32.png" sizes="32x32">
+<link rel="icon" href="icons/admin-icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/admin-icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Administration">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="styles.css">
+<script>
+  window.onerror = function(message, source, lineno, colno, error){
+    var banner = document.createElement('div');
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#B23A3A;color:#fff;text-align:center;padding:10px;font-size:13px;font-weight:600;';
+    banner.textContent = '⚠ Erreur : ' + message + ' (ligne ' + lineno + ')';
+    document.body ? document.body.prepend(banner) : document.addEventListener('DOMContentLoaded', function(){ document.body.prepend(banner); });
+    alert('Erreur JavaScript : ' + message + '\n(ligne ' + lineno + ')');
+    return false;
+  };
+</script>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <a href="index.html"><img src="assets/logo.png" alt="Captivo" class="logo-img" style="cursor:pointer"></a>
+    <button class="btn btn-outline" id="install-app-btn" style="display:none;" onclick="installApp()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:5px;"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+      Installer l'app
+    </button>
+    <div class="header-actions" id="header-actions-admin">
+      <span style="color:var(--blue-300);font-size:13px;font-weight:600;">Administration</span>
+    </div>
+  </div>
+</header>
+
+<div id="login-view" style="min-height:70vh;display:flex;align-items:center;justify-content:center;padding:40px 20px;">
+  <div class="modal" style="position:static;box-shadow:0 20px 60px rgba(3,10,25,0.15);">
+    <div class="modal-tag photog">Accès réservé</div>
+    <h3>Connexion administrateur</h3>
+    <div id="login-error" style="display:none;background:#FBE3E3;color:#B23A3A;border-radius:10px;padding:11px 14px;font-size:13px;font-weight:600;margin-bottom:14px;"></div>
+    <form onsubmit="return submitAdminLogin(event)">
+      <div class="field"><label>Email</label><input type="email" id="admin-email" required></div>
+      <div class="field"><label>Mot de passe</label><input type="password" id="admin-pass" required></div>
+      <button class="modal-submit photog" type="submit" id="login-btn">Se connecter</button>
+    </form>
+  </div>
+</div>
+
+<div id="panel-view" style="display:none;">
+  <div class="dash-banner" style="padding-bottom:0;">
+    <main class="dash-banner-inner">
+      <div class="dash-head">
+        <div>
+          <h1 style="color:var(--white);font-size:26px;font-weight:500;margin:0 0 4px;">Panel d'administration</h1>
+          <p style="color:var(--gold-500);font-size:13.5px;font-weight:600;margin:0;">Captivo</p>
+        </div>
+        <button class="btn btn-outline" style="margin-left:auto" onclick="logoutAdmin()">Déconnexion</button>
+      </div>
+      <nav class="dash-tabs">
+        <button class="dash-tab admin-tab active" data-tab="allusers" onclick="setAdminTab('allusers')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          Tous les comptes <span id="allusers-count" class="admin-tab-badge">0</span>
+        </button>
+        <button class="dash-tab admin-tab" data-tab="verif" onclick="setAdminTab('verif')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4M12 3l8 4v5c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V7l8-4z"/></svg>
+          Vérifications <span id="verif-count" class="admin-tab-badge">0</span>
+        </button>
+        <button class="dash-tab admin-tab" data-tab="photographers" onclick="setAdminTab('photographers')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+          Photographes <span id="photographers-count" class="admin-tab-badge">0</span>
+        </button>
+        <button class="dash-tab admin-tab" data-tab="clients" onclick="setAdminTab('clients')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          Clients <span id="clients-count" class="admin-tab-badge">0</span>
+        </button>
+        <button class="dash-tab admin-tab" data-tab="admins" onclick="setAdminTab('admins')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 6 6 1-4.5 4.5L18 20l-6-3-6 3 1.5-6.5L3 9l6-1z"/></svg>
+          Admins <span id="admins-count" class="admin-tab-badge">0</span>
+        </button>
+        <button class="dash-tab admin-tab" data-tab="bans" onclick="setAdminTab('bans')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M5.5 5.5l13 13"/></svg>
+          Bannis <span id="bans-count" class="admin-tab-badge">0</span>
+        </button>
+        <button class="dash-tab admin-tab" data-tab="reviews" onclick="setAdminTab('reviews')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17.3l-6.2 3.3 1.2-6.9L2 8.9l7-1L12 1.5l3 6.4 7 1-5 4.8 1.2 6.9z"/></svg>
+          Avis <span id="reviews-count" class="admin-tab-badge">0</span>
+        </button>
+      </nav>
+    </main>
+  </div>
+  <main class="dash-body">
+    <div class="dash-stats admin-stats">
+      <div class="stat-card"><div class="val" id="stat-pending">0</div><div class="lbl">Dossiers en attente</div></div>
+      <div class="stat-card"><div class="val" id="stat-photographers">0</div><div class="lbl">Photographes inscrits</div></div>
+      <div class="stat-card"><div class="val" id="stat-verified">0</div><div class="lbl">Profils vérifiés</div></div>
+      <div class="stat-card"><div class="val" id="stat-reviews">0</div><div class="lbl">Avis publiés</div></div>
+    </div>
+    <section class="admin-section" data-section="allusers">
+      <div class="dash-card">
+        <div class="admin-section-head">
+          <div class="admin-section-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          </div>
+          <div>
+            <h3>Tous les comptes Captivo</h3>
+            <p class="hint">Clients, photographes et admins réunis. Bannissez ou supprimez un compte, ou créez-en un manuellement.</p>
+          </div>
+        </div>
+
+        <div class="add-slot-row" style="align-items:flex-end;">
+          <div class="field" style="flex:1;"><label>Nom complet</label><input type="text" id="cu-name" placeholder="Prénom Nom"></div>
+          <div class="field" style="flex:1;"><label>Email</label><input type="email" id="cu-email" placeholder="email@exemple.com"></div>
+        </div>
+        <div class="add-slot-row" style="align-items:flex-end;">
+          <div class="field" style="flex:1;"><label>Mot de passe</label><input type="password" id="cu-password" placeholder="6 caractères minimum"></div>
+          <div class="field" style="flex:1;">
+            <label>Type de compte</label>
+            <select id="cu-type" onchange="document.getElementById('cu-photog-fields').style.display = this.value==='photographer' ? 'flex' : 'none';">
+              <option value="client">Client</option>
+              <option value="photographer">Photographe</option>
+            </select>
+          </div>
+          <button id="create-user-btn">+ Créer le compte</button>
+        </div>
+        <div class="add-slot-row" id="cu-photog-fields" style="display:none;align-items:flex-end;">
+          <div class="field" style="flex:1;"><label>Ville</label><input type="text" id="cu-city" placeholder="Ex. Annecy"></div>
+          <div class="field" style="flex:1;">
+            <label>Style principal</label>
+            <select id="cu-style">
+              <option>Mariage</option><option>Portrait</option><option>Événementiel</option>
+              <option>Corporate</option><option>Immobilier</option><option>Nouveau-né</option>
+            </select>
+          </div>
+        </div>
+        <div id="cu-error" style="display:none;color:#B23A3A;font-size:13px;font-weight:600;margin-bottom:14px;"></div>
+
+        <hr style="border:none;border-top:1px solid var(--line-dark);margin:24px 0;">
+
+        <div class="add-slot-row" style="margin-bottom:14px;">
+          <div class="field" style="flex:1;margin:0;">
+            <input type="text" id="allusers-search" placeholder="Filtrer par nom ou email…" oninput="renderAllUsersList()">
+          </div>
+          <select id="allusers-role-filter" onchange="renderAllUsersList()" style="padding:11px 13px;border-radius:10px;border:1px solid #DCE3EE;font-size:14px;">
+            <option value="">Tous les rôles</option>
+            <option value="client">Clients</option>
+            <option value="photographer">Photographes</option>
+            <option value="admin">Admins</option>
+          </select>
+        </div>
+        <div id="allusers-list"></div>
+      </div>
+    </section>
+
+    <section class="admin-section" data-section="verif" style="display:none;">
+      <div class="dash-card">
+        <div class="admin-section-head">
+          <div class="admin-section-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4M12 3l8 4v5c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V7l8-4z"/></svg>
+          </div>
+          <div>
+            <h3>Dossiers de vérification en attente</h3>
+            <p class="hint">Consultez le justificatif avant d'approuver ou de refuser un dossier.</p>
+          </div>
+        </div>
+        <div id="verif-list"></div>
+      </div>
+    </section>
+    <section class="admin-section" data-section="photographers" style="display:none;">
+      <div class="dash-card">
+        <div class="admin-section-head">
+          <div class="admin-section-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+          </div>
+          <div>
+            <h3>Tous les photographes</h3>
+            <p class="hint">Consultez leurs coordonnées, envoyez-leur un email, ou bannissez un compte problématique.</p>
+          </div>
+        </div>
+        <div id="photographers-list"></div>
+      </div>
+    </section>
+
+    <section class="admin-section" data-section="clients" style="display:none;">
+      <div class="dash-card">
+        <div class="admin-section-head">
+          <div class="admin-section-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          </div>
+          <div>
+            <h3>Tous les clients</h3>
+            <p class="hint">Consultez leurs coordonnées, ou bannissez un compte problématique.</p>
+          </div>
+        </div>
+        <div id="clients-list"></div>
+      </div>
+    </section>
+
+    <section class="admin-section" data-section="admins" style="display:none;">
+      <div class="dash-card">
+        <div class="admin-section-head">
+          <div class="admin-section-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 6 6 1-4.5 4.5L18 20l-6-3-6 3 1.5-6.5L3 9l6-1z"/></svg>
+          </div>
+          <div>
+            <h3>Membres du staff</h3>
+            <p class="hint">Ajoutez ou retirez des droits administrateur. Récupérez l'UID d'un compte depuis Supabase → Authentication → Users.</p>
+          </div>
+        </div>
+        <div class="add-slot-row" style="align-items:flex-end;">
+          <div class="field" style="flex:2;"><label>UID du compte à promouvoir</label><input type="text" id="new-admin-uid" placeholder="ex. a1b2c3d4-e5f6-..."></div>
+          <button id="add-admin-btn">+ Ajouter comme admin</button>
+        </div>
+        <div id="admin-form-error" style="display:none;color:#B23A3A;font-size:13px;font-weight:600;margin-bottom:14px;"></div>
+        <div id="admins-list"></div>
+      </div>
+    </section>
+
+    <section class="admin-section" data-section="bans" style="display:none;">
+      <div class="dash-card">
+        <div class="admin-section-head">
+          <div class="admin-section-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M5.5 5.5l13 13"/></svg>
+          </div>
+          <div>
+            <h3>Bannissement de comptes</h3>
+            <p class="hint">Fonctionne pour un client ou un photographe. Pour un client, récupérez son UID depuis Supabase → Authentication → Users. Pour un photographe, utilisez plutôt le bouton « Bannir » depuis l'onglet Photographes.</p>
+          </div>
+        </div>
+        <div class="add-slot-row" style="align-items:flex-end;">
+          <div class="field" style="flex:2;"><label>UID à bannir</label><input type="text" id="ban-uid" placeholder="ex. a1b2c3d4-e5f6-..."></div>
+        </div>
+        <div class="field"><label>Motif (visible par la personne bannie)</label><input type="text" id="ban-reason" placeholder="Ex. non-respect des CGU, comportement signalé..."></div>
+        <div id="ban-form-error" style="display:none;color:#B23A3A;font-size:13px;font-weight:600;margin-bottom:14px;"></div>
+        <button class="save-btn" id="ban-submit-btn">Bannir ce compte</button>
+        <hr style="border:none;border-top:1px solid var(--line-dark);margin:24px 0;">
+        <h3 style="font-size:15px;margin:0 0 14px;">Comptes actuellement bannis</h3>
+        <div id="bans-list"></div>
+      </div>
+    </section>
+
+    <section class="admin-section" data-section="reviews" style="display:none;">
+      <div class="dash-card">
+        <div class="admin-section-head">
+          <div class="admin-section-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17.3l-6.2 3.3 1.2-6.9L2 8.9l7-1L12 1.5l3 6.4 7 1-5 4.8 1.2 6.9z"/></svg>
+          </div>
+          <div>
+            <h3>Modération des avis</h3>
+            <p class="hint">Supprimez tout avis injurieux, diffamatoire ou manifestement trompeur.</p>
+          </div>
+        </div>
+        <div id="reviews-list"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="admin.js"></script>
+</body>
+</html>
