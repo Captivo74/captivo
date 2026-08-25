@@ -366,6 +366,10 @@
   .profile-block h3{font-size:15px;margin:0 0 12px;color:var(--navy-950);}
   .profile-block p{color:var(--ink-soft);font-size:14.5px;line-height:1.7;margin:0;}
   .portfolio-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  .price-rows-list{display:flex;flex-direction:column;gap:10px;}
+  .price-row{display:flex;align-items:center;justify-content:space-between;background:var(--white);border:1px solid var(--line-dark);border-radius:100px;padding:10px 10px 10px 20px;box-shadow:var(--shadow-soft);}
+  .price-row-style{font-weight:600;color:var(--ink);font-size:14px;}
+  .price-row-pill{background:linear-gradient(135deg,var(--gold-500),var(--gold-600));color:var(--navy-950);font-weight:700;font-size:13px;padding:8px 18px;border-radius:100px;white-space:nowrap;}
   .portfolio-grid .ph{aspect-ratio:4/5;border-radius:12px;object-fit:cover;background-size:cover;background-position:center;-webkit-user-drag:none;user-select:none;}
   .dash-portfolio-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;}
   .dash-photo-item{position:relative;aspect-ratio:1;border-radius:12px;overflow:hidden;background:var(--ice-100);}
@@ -482,6 +486,10 @@
   .style-checkbox{display:flex;align-items:center;gap:7px;font-size:13.5px;color:var(--ink);padding:5px 6px;border-radius:7px;cursor:pointer;}
   .style-checkbox:hover{background:var(--ice-50);}
   .style-checkbox input{width:auto;margin:0;}
+  .price-input-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .price-input-row .price-input-label{flex:0 0 130px;font-size:13.5px;font-weight:600;color:var(--ink);}
+  .price-input-row .pf-price-input{flex:1;padding:9px 12px;border-radius:8px;border:1px solid #DCE3EE;font-size:13.5px;font-family:inherit;outline:none;}
+  .price-input-row .pf-price-input:focus{border-color:var(--blue-500);}
   .modal-submit{width:100%;padding:12px;border-radius:10px;font-weight:700;font-size:14.5px;margin-top:6px;}
   .modal-submit.photog{background:var(--blue-700);color:var(--white);}
   .modal-submit.client{background:linear-gradient(180deg,var(--gold-500),var(--gold-600));color:var(--navy-950);}

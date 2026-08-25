@@ -41,7 +41,7 @@ function mapDbPhotographer(row){
   return {
     id: row.id, user_id: row.user_id, name: row.name, city: row.city, style: row.style,
     styles: (row.styles && row.styles.length) ? row.styles : [row.style],
-    rate: row.rate, rating: row.rating, bio: row.bio, initials: row.initials, color: row.color,
+    rate: row.rate, prices: row.prices || {}, rating: row.rating, bio: row.bio, initials: row.initials, color: row.color,
     verification_status: row.verification_status || 'unverified',
     verification_siret: row.verification_siret || '',
     verification_note: row.verification_note || '',
@@ -172,6 +172,15 @@ function formatStyles(stylesArr){
   return arr.slice(0,2).join(', ') + ' +' + (arr.length - 2);
 }
 
+// Calcule un résumé court du tarif le plus bas parmi tous les styles renseignés (ex. "Dès 120€")
+function summarizeLowestPrice(prices){
+  const values = Object.values(prices || {})
+    .map(v => parseFloat(String(v).replace(/[^\d.,]/g,'').replace(',','.')))
+    .filter(n => !isNaN(n) && n > 0);
+  if(!values.length) return 'Tarifs sur demande';
+  return `Dès ${Math.min(...values)}€`;
+}
+
 function normalize(s){ return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 
 function levenshtein(a, b){
@@ -250,7 +259,7 @@ function renderResults(list, label){
       <div class="body">
         <p class="name">${escapeHtml(p.name)}${p.verification_status==='verified' ? ' <span class="verified-badge" title="Identité vérifiée">✓ Vérifié</span>' : ''}</p>
         <p class="city">📍 ${escapeHtml(p.city)} — ${escapeHtml(formatStyles(p.styles))}</p>
-        <div class="meta"><span>${p.rate}</span><span class="rate" style="cursor:pointer">Voir profil</span></div>
+        <div class="meta"><span>${summarizeLowestPrice(p.prices)}</span><span class="rate" style="cursor:pointer">Voir profil</span></div>
         <button class="book-btn">Réserver un créneau</button>
       </div>`;
     card.querySelector('.rate').onclick = ()=> showProfilePage(p.name);
@@ -275,7 +284,7 @@ async function showProfilePage(name){
   document.getElementById('profile-avatar').textContent = p.initials;
   document.getElementById('profile-name').innerHTML = escapeHtml(p.name) + (p.verification_status==='verified' ? ' <span class="verified-badge" title="Identité vérifiée">✓ Vérifié</span>' : '');
   document.getElementById('profile-bio').textContent = p.bio;
-  document.getElementById('profile-meta').textContent = `📍 ${p.city} — ${formatStyles(p.styles)} · ★ ${p.rating} · ${p.rate}`;
+  document.getElementById('profile-meta').textContent = `📍 ${p.city} — ${formatStyles(p.styles)} · ★ ${p.rating}`;
 
   const portfolio = document.getElementById('profile-portfolio');
   portfolio.innerHTML='<div class="empty-state">Chargement…</div>';
@@ -303,12 +312,23 @@ async function showProfilePage(name){
     }
   }
 
+  // Liste compacte en pastilles, une ligne par style proposé
+  const pricesEl = document.getElementById('profile-prices');
+  const stylesForPricing = p.styles || [p.style];
+  pricesEl.innerHTML = stylesForPricing.map(s=>{
+    const priceValue = (p.prices && p.prices[s]) ? p.prices[s] : null;
+    return `<div class="price-row">
+      <span class="price-row-style">${escapeHtml(s)}</span>
+      <span class="price-row-pill">${priceValue ? `Dès ${escapeHtml(priceValue)}` : 'Sur demande'}</span>
+    </div>`;
+  }).join('');
+
   const { data: reviews } = await supabase.from('reviews').select('*').eq('photographer_id', p.id).order('created_at', {ascending:false});
   const reviewsEl = document.getElementById('profile-reviews');
   if(reviews && reviews.length){
     const avg = (reviews.reduce((s,r)=>s+r.rating,0) / reviews.length).toFixed(1);
     document.getElementById('reviews-title').textContent = `Avis clients — ${avg}★ (${reviews.length} avis)`;
-    document.getElementById('profile-meta').textContent = `📍 ${p.city} — ${formatStyles(p.styles)} · ★ ${avg} (${reviews.length} avis) · ${p.rate}`;
+    document.getElementById('profile-meta').textContent = `📍 ${p.city} — ${formatStyles(p.styles)} · ★ ${avg} (${reviews.length} avis)`;
     reviewsEl.innerHTML = reviews.map(r=>`
       <div class="review-item">
         <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -1109,7 +1129,7 @@ function renderDashOverview(p){
   const pending = dashRequestsCache.filter(r=>r.status==='pending');
   const confirmed = dashRequestsCache.filter(r=>r.status==='confirmed').length;
   const unreadMsg = dashMessagesCache.filter(m=>!m.read).length;
-  const profileIncomplete = p.rate==='À définir' || (p.bio||'').startsWith('Nouveau photographe sur Captivo');
+  const profileIncomplete = !p.prices || !Object.keys(p.prices).length || (p.bio||'').startsWith('Nouveau photographe sur Captivo');
   return `
     ${profileIncomplete ? `
       <div class="dash-card" style="background:var(--gold-100);border-color:transparent;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
@@ -1252,7 +1272,7 @@ function renderDashPortfolio(p){
 
 function renderDashProfile(p){
   const currentStyles = p.styles || [p.style];
-  const styleCheckboxes = Object.keys(styleIcons).map(s=>`<label class="style-checkbox"><input type="checkbox" name="pf-styles" value="${s}" ${currentStyles.includes(s)?'checked':''}>${s}</label>`).join('');
+  const styleCheckboxes = Object.keys(styleIcons).map(s=>`<label class="style-checkbox"><input type="checkbox" name="pf-styles" value="${s}" ${currentStyles.includes(s)?'checked':''} onchange="refreshPriceInputs()">${s}</label>`).join('');
   return `<div class="dash-card">
     <h3>Mon profil public</h3>
     <p class="hint">Ces informations sont visibles par les clients sur votre fiche et dans les résultats de recherche.</p>
@@ -1260,13 +1280,37 @@ function renderDashProfile(p){
       <div class="field"><label>Nom complet</label><input type="text" id="pf-name" value="${escapeHtml(p.name)}"></div>
       <div class="field"><label>Secteur d'exercice</label><input type="text" id="pf-city" value="${escapeHtml(p.city)}"></div>
       <div class="field"><label>Styles proposés <span style="font-weight:400;color:var(--ink-soft);">(cochez-en au moins un)</span></label><div class="style-checkbox-grid">${styleCheckboxes}</div></div>
-      <div class="field"><label>Tarif affiché</label><input type="text" id="pf-rate" value="${p.rate}"></div>
+      <div class="field">
+        <label>Tarifs <span style="font-weight:400;color:var(--ink-soft);">(un tarif « à partir de » par style proposé)</span></label>
+        <div id="pf-prices-container">${renderPriceInputsHtml(currentStyles, p.prices || {})}</div>
+      </div>
       <div class="field"><label>Présentation</label><textarea id="pf-bio">${escapeHtml(p.bio)}</textarea></div>
       <button class="save-btn" id="save-profile-btn">Enregistrer</button>
       <span class="saved-tag" id="saved-tag" style="display:none;">Profil mis à jour ✔</span>
     </div>
   </div>
   ${renderVerificationBlock(p)}`;
+}
+
+// Construit les champs "à partir de ... €" pour chaque style actuellement coché
+function renderPriceInputsHtml(stylesArr, existingPrices){
+  if(!stylesArr.length) return '<p class="hint" style="margin:0;">Cochez au moins un style ci-dessus pour renseigner son tarif.</p>';
+  return stylesArr.map(s=>`
+    <div class="price-input-row">
+      <span class="price-input-label">${escapeHtml(s)}</span>
+      <input type="text" class="pf-price-input" data-style="${escapeHtml(s)}" placeholder="ex. 800€" value="${escapeHtml(existingPrices[s]||'')}">
+    </div>
+  `).join('');
+}
+
+// Regénère les champs de tarifs quand on coche/décoche un style, sans perdre ce qui est déjà tapé
+function refreshPriceInputs(){
+  const checked = document.querySelectorAll('input[name="pf-styles"]:checked');
+  const checkedStyles = Array.prototype.map.call(checked, c=>c.value);
+  const existingInputs = document.querySelectorAll('.pf-price-input');
+  const currentValues = {};
+  Array.prototype.forEach.call(existingInputs, el=>{ currentValues[el.dataset.style] = el.value; });
+  document.getElementById('pf-prices-container').innerHTML = renderPriceInputsHtml(checkedStyles, currentValues);
 }
 
 function renderVerificationBlock(p){
@@ -1456,13 +1500,17 @@ function wireDashEvents(p, tab){
       if(!stylesArr.length){ alert("Merci de cocher au moins un style que vous proposez."); return; }
       saveBtn.disabled = true;
       const newName = document.getElementById('pf-name').value.trim() || p.name;
+      const priceInputs = document.querySelectorAll('.pf-price-input');
+      const prices = {};
+      Array.prototype.forEach.call(priceInputs, el=>{ if(el.value.trim()) prices[el.dataset.style] = el.value.trim(); });
       const updates = {
         name: newName,
         initials: newName.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(),
         city: document.getElementById('pf-city').value || p.city,
         style: stylesArr[0],
         styles: stylesArr,
-        rate: document.getElementById('pf-rate').value || p.rate,
+        prices: prices,
+        rate: summarizeLowestPrice(prices),
         bio: document.getElementById('pf-bio').value || p.bio
       };
       const { error } = await supabase.from('photographers').update(updates).eq('id', p.id);
