@@ -40,6 +40,7 @@ var photographers = [];
 function mapDbPhotographer(row){
   return {
     id: row.id, user_id: row.user_id, name: row.name, city: row.city, style: row.style,
+    styles: (row.styles && row.styles.length) ? row.styles : [row.style],
     rate: row.rate, rating: row.rating, bio: row.bio, initials: row.initials, color: row.color,
     verification_status: row.verification_status || 'unverified',
     verification_siret: row.verification_siret || '',
@@ -88,7 +89,7 @@ supabase.auth.onAuthStateChange(async (event, session)=>{
         if(pending.email === session.user.email){
           localStorage.removeItem('captivo_pending_photographer');
           const photographerRef = await fetchOrCreatePhotographerProfile(
-            session.user.id, pending.name, pending.city, pending.style, pending.email
+            session.user.id, pending.name, pending.city, pending.styles, pending.email
           );
           const existingIdx = photographers.findIndex(x=>x.id===photographerRef.id);
           if(existingIdx>=0) photographers[existingIdx] = photographerRef;
@@ -118,6 +119,7 @@ var styleIcons = {
   "Paysage":"M3 18l6-8 4 5 3-4 5 7H3z",
   "Nature":"M12 2C8 6 5 10 5 14a7 7 0 0014 0c0-4-3-8-7-12z",
   "Nouveau-né":"M12 21c4-2 7-5 7-9a7 7 0 00-14 0c0 4 3 7 7 9z",
+  "Vidéaste":"M15 10l5-3v10l-5-3zM3 6h11a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V7a1 1 0 011-1z",
 };
 var styleDescriptions = {
   "Mariage":"Cérémonie, préparatifs, soirée",
@@ -134,6 +136,7 @@ var styleDescriptions = {
   "Paysage":"Nature, voyage, extérieurs",
   "Nature":"Faune, flore, macro",
   "Nouveau-né":"Séances douces les premiers jours",
+  "Vidéaste":"Films de mariage, clips, reportages",
 };
 var stylesGrid = document.getElementById('styles-grid');
 Object.keys(styleIcons).forEach(s=>{
@@ -159,6 +162,14 @@ function escapeHtml(str){
   return String(str)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+// Affiche une liste de styles de façon compacte : "Mariage, Portrait" ou "Mariage, Portrait +2"
+function formatStyles(stylesArr){
+  const arr = (stylesArr && stylesArr.length) ? stylesArr : [];
+  if(!arr.length) return '';
+  if(arr.length <= 2) return arr.join(', ');
+  return arr.slice(0,2).join(', ') + ' +' + (arr.length - 2);
 }
 
 function normalize(s){ return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
@@ -202,7 +213,7 @@ function runSearch(){
   const filtered = photographers.filter(p=>{
     const okName = name ? fuzzyIncludes(normalize(p.name), name) : true;
     const okCity = city ? fuzzyIncludes(normalize(p.city), city) : true;
-    const okStyle = style ? p.style === style : true;
+    const okStyle = style ? (p.styles || [p.style]).includes(style) : true;
     return okName && okCity && okStyle;
   });
   const parts = [];
@@ -238,7 +249,7 @@ function renderResults(list, label){
       <div class="cover" style="${p.cover_photo ? `background-image:url('${p.cover_photo}');background-size:cover;background-position:center;` : `background:${p.color}`}">${p.cover_photo ? '' : p.initials}<div class="badge">★ ${p.rating}${p.review_count ? ` (${p.review_count})` : ''}</div></div>
       <div class="body">
         <p class="name">${escapeHtml(p.name)}${p.verification_status==='verified' ? ' <span class="verified-badge" title="Identité vérifiée">✓ Vérifié</span>' : ''}</p>
-        <p class="city">📍 ${escapeHtml(p.city)} — ${p.style}</p>
+        <p class="city">📍 ${escapeHtml(p.city)} — ${escapeHtml(formatStyles(p.styles))}</p>
         <div class="meta"><span>${p.rate}</span><span class="rate" style="cursor:pointer">Voir profil</span></div>
         <button class="book-btn">Réserver un créneau</button>
       </div>`;
@@ -264,7 +275,7 @@ async function showProfilePage(name){
   document.getElementById('profile-avatar').textContent = p.initials;
   document.getElementById('profile-name').innerHTML = escapeHtml(p.name) + (p.verification_status==='verified' ? ' <span class="verified-badge" title="Identité vérifiée">✓ Vérifié</span>' : '');
   document.getElementById('profile-bio').textContent = p.bio;
-  document.getElementById('profile-meta').textContent = `📍 ${p.city} — ${p.style} · ★ ${p.rating} · ${p.rate}`;
+  document.getElementById('profile-meta').textContent = `📍 ${p.city} — ${formatStyles(p.styles)} · ★ ${p.rating} · ${p.rate}`;
 
   const portfolio = document.getElementById('profile-portfolio');
   portfolio.innerHTML='<div class="empty-state">Chargement…</div>';
@@ -277,6 +288,9 @@ async function showProfilePage(name){
     photos.forEach(ph=>{
       const img = document.createElement('img');
       img.className='ph'; img.src = ph.url; img.alt = p.name+' — portfolio';
+      // Décourage la copie facile : pas de clic droit "Enregistrer l'image", pas de glisser-déposer
+      img.draggable = false;
+      img.oncontextmenu = ()=> false;
       portfolio.appendChild(img);
     });
   } else {
@@ -294,7 +308,7 @@ async function showProfilePage(name){
   if(reviews && reviews.length){
     const avg = (reviews.reduce((s,r)=>s+r.rating,0) / reviews.length).toFixed(1);
     document.getElementById('reviews-title').textContent = `Avis clients — ${avg}★ (${reviews.length} avis)`;
-    document.getElementById('profile-meta').textContent = `📍 ${p.city} — ${p.style} · ★ ${avg} (${reviews.length} avis) · ${p.rate}`;
+    document.getElementById('profile-meta').textContent = `📍 ${p.city} — ${formatStyles(p.styles)} · ★ ${avg} (${reviews.length} avis) · ${p.rate}`;
     reviewsEl.innerHTML = reviews.map(r=>`
       <div class="review-item">
         <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -322,7 +336,7 @@ function closeProfile(){
 
 function renderBookingPanel(p, selectedStyle){
   const styles = Object.keys(styleIcons);
-  const availableSlots = selectedStyle === p.style ? p.slots : [];
+  const availableSlots = (p.styles || [p.style]).includes(selectedStyle) ? p.slots : [];
   const panel = document.getElementById('booking-panel');
   panel.innerHTML = `
     <h3>Réserver un créneau</h3>
@@ -707,7 +721,7 @@ function showBlocked(triedType){
 
 function showAuthForm(type, mode){
   const isPhotog = type==='photographer';
-  const styleOptions = Object.keys(styleIcons).map(s=>`<option value="${s}">${s}</option>`).join('');
+  const styleCheckboxes = Object.keys(styleIcons).map(s=>`<label class="style-checkbox"><input type="checkbox" name="auth-styles" value="${s}">${s}</label>`).join('');
   document.getElementById('overlay').style.display='flex';
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-tag ${isPhotog?'photog':'client'}">${isPhotog?'Espace Photographe':'Espace Client'}</div>
@@ -721,8 +735,8 @@ function showAuthForm(type, mode){
       ${mode==='signup' ? `<div class="field"><label>Nom complet</label><input type="text" id="auth-name" required placeholder="${isPhotog?'Nom du studio ou photographe':'Prénom et nom'}"></div>` : ''}
       <div class="field"><label>Email</label><input type="email" id="auth-email" required placeholder="vous@exemple.com"></div>
       ${mode==='signup' && isPhotog ? `
-        <div class="field"><label>Ville d'exercice</label><input type="text" id="auth-city" placeholder="Ex. Annecy" required></div>
-        <div class="field"><label>Style principal</label><select id="auth-style">${styleOptions}</select></div>
+        <div class="field"><label>Secteur d'exercice</label><input type="text" id="auth-city" placeholder="Ex. Annecy" required></div>
+        <div class="field"><label>Styles proposés <span style="font-weight:400;color:var(--ink-soft);">(cochez-en au moins un)</span></label><div class="style-checkbox-grid">${styleCheckboxes}</div></div>
       ` : ''}
       <div class="field"><label>Mot de passe</label><input type="password" id="auth-pass" required minlength="6" placeholder="6 caractères minimum"></div>
       <button class="modal-submit ${isPhotog?'photog':'client'}" type="submit" id="auth-submit-btn">${mode==='login' ? 'Se connecter' : 'Créer mon compte '+(isPhotog?'photographe':'client')}</button>
@@ -836,14 +850,17 @@ async function submitNewPassword(e){
   return false;
 }
 
-async function fetchOrCreatePhotographerProfile(userId, fallbackName, city, style, email){
+async function fetchOrCreatePhotographerProfile(userId, fallbackName, city, styles, email){
   const { data: existing } = await supabase.from('photographers').select('*, slots(*)').eq('user_id', userId).maybeSingle();
   if(existing){
     // Corrige une fiche qui aurait été créée sans les bonnes infos (ex. premier login avant confirmation email)
     const updates = {};
     if(fallbackName && fallbackName !== existing.name) updates.name = fallbackName;
-    if(city && existing.city === 'Ville non renseignée') updates.city = city;
-    if(style && existing.style === 'Portrait' && style !== 'Portrait') updates.style = style;
+    if(city && existing.city === 'Secteur non renseigné') updates.city = city;
+    if(styles && styles.length && (!existing.styles || !existing.styles.length)){
+      updates.styles = styles;
+      updates.style = styles[0];
+    }
 
     // Comble un manque possible : un compte créé avant l'ajout de photographer_emails
     // (ou dont l'email n'a jamais pu être enregistré pour une autre raison) n'a jamais
@@ -867,9 +884,10 @@ async function fetchOrCreatePhotographerProfile(userId, fallbackName, city, styl
   }
 
   const name = fallbackName || 'Photographe';
+  const stylesArr = (styles && styles.length) ? styles : ["Portrait"];
   const { data, error } = await supabase.from('photographers').insert({
     user_id: userId, name,
-    city: city || "Ville non renseignée", style: style || "Portrait",
+    city: city || "Secteur non renseigné", style: stylesArr[0], styles: stylesArr,
     rate:"À définir", rating:5.0,
     initials: name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(),
     color: shadeColors[Math.floor(Math.random()*shadeColors.length)],
@@ -891,15 +909,21 @@ async function submitAuth(e, type, mode){
   const password = document.getElementById('auth-pass').value;
   const nameEl = document.getElementById('auth-name');
   const cityEl = document.getElementById('auth-city');
-  const styleEl = document.getElementById('auth-style');
+  const stylesCheckboxes = document.querySelectorAll('input[name="auth-styles"]:checked');
+  const stylesArr = stylesCheckboxes ? Array.prototype.map.call(stylesCheckboxes, function(c){ return c.value; }) : [];
 
   try{
     let authData;
     if(mode==='signup'){
       if(type==='photographer'){
+        if(!stylesArr.length){
+          showAuthError("Merci de cocher au moins un style que vous proposez.");
+          btn.disabled = false;
+          return false;
+        }
         try{
           localStorage.setItem('captivo_pending_photographer', JSON.stringify({
-            email, name: nameEl.value, city: cityEl ? cityEl.value : null, style: styleEl ? styleEl.value : null
+            email, name: nameEl.value, city: cityEl ? cityEl.value : null, styles: stylesArr
           }));
         } catch(e){ /* stockage indisponible, tant pis : le message de reconnexion manuelle reste le filet de secours */ }
       }
@@ -939,7 +963,7 @@ async function submitAuth(e, type, mode){
         user.id,
         nameEl ? nameEl.value : null,
         cityEl ? cityEl.value : null,
-        styleEl ? styleEl.value : null,
+        stylesArr.length ? stylesArr : null,
         email
       );
       const existingIdx = photographers.findIndex(x=>x.id===photographerRef.id);
@@ -1020,7 +1044,7 @@ async function openDashboard(){
   document.getElementById('dash-avatar').style.background = p.color;
   document.getElementById('dash-avatar').textContent = p.initials;
   document.getElementById('dash-name').textContent = p.name;
-  document.getElementById('dash-meta').textContent = `📍 ${p.city} — ${p.style}`;
+  document.getElementById('dash-meta').textContent = `📍 ${p.city} — ${formatStyles(p.styles)}`;
   document.querySelectorAll('.dash-tab').forEach(t=>{
     t.onclick = ()=> setDashTab(t.dataset.tab);
   });
@@ -1227,14 +1251,15 @@ function renderDashPortfolio(p){
 }
 
 function renderDashProfile(p){
-  const styleOptions = Object.keys(styleIcons).map(s=>`<option value="${s}" ${s===p.style?'selected':''}>${s}</option>`).join('');
+  const currentStyles = p.styles || [p.style];
+  const styleCheckboxes = Object.keys(styleIcons).map(s=>`<label class="style-checkbox"><input type="checkbox" name="pf-styles" value="${s}" ${currentStyles.includes(s)?'checked':''}>${s}</label>`).join('');
   return `<div class="dash-card">
     <h3>Mon profil public</h3>
     <p class="hint">Ces informations sont visibles par les clients sur votre fiche et dans les résultats de recherche.</p>
     <div class="profile-form">
       <div class="field"><label>Nom complet</label><input type="text" id="pf-name" value="${escapeHtml(p.name)}"></div>
-      <div class="field"><label>Ville d'exercice</label><input type="text" id="pf-city" value="${escapeHtml(p.city)}"></div>
-      <div class="field"><label>Style principal</label><select id="pf-style">${styleOptions}</select></div>
+      <div class="field"><label>Secteur d'exercice</label><input type="text" id="pf-city" value="${escapeHtml(p.city)}"></div>
+      <div class="field"><label>Styles proposés <span style="font-weight:400;color:var(--ink-soft);">(cochez-en au moins un)</span></label><div class="style-checkbox-grid">${styleCheckboxes}</div></div>
       <div class="field"><label>Tarif affiché</label><input type="text" id="pf-rate" value="${p.rate}"></div>
       <div class="field"><label>Présentation</label><textarea id="pf-bio">${escapeHtml(p.bio)}</textarea></div>
       <button class="save-btn" id="save-profile-btn">Enregistrer</button>
@@ -1262,9 +1287,9 @@ function renderVerificationBlock(p){
     <h3>Vérification d'identité</h3>
     <p class="hint">Faites vérifier votre identité pour afficher le badge « ✓ Vérifié » sur votre profil, et rassurer les clients — même sans société créée, un justificatif d'identité suffit.</p>
     ${rejected ? `<div class="blocked-msg">Votre précédente demande a été refusée${p.verification_note ? ' : « '+escapeHtml(p.verification_note)+' »' : ''}. Vous pouvez soumettre un nouveau dossier ci-dessous.</div>` : ''}
-    <div class="field"><label>Numéro SIRET <span style="font-weight:400;color:var(--ink-soft);">(facultatif — laissez vide si vous n'avez pas encore de société)</span></label><input type="text" id="verif-siret" placeholder="14 chiffres, ou laissez vide" value="${p.verification_siret||''}"></div>
+    <div class="field"><label>Numéro SIREN <span style="font-weight:400;color:var(--ink-soft);">(facultatif — laissez vide si vous n'avez pas encore de société)</span></label><input type="text" id="verif-siret" placeholder="9 chiffres, ou laissez vide" value="${p.verification_siret||''}"></div>
     <div class="field">
-      <label>Justificatif (pièce d'identité, ou extrait Kbis/SIRET si vous en avez un — PDF ou image)</label>
+      <label>Justificatif (pièce d'identité, ou extrait Kbis/SIREN si vous en avez un — PDF ou image)</label>
       <input type="file" id="verif-file" accept="image/png,image/jpeg,application/pdf">
     </div>
     <div id="verif-error" style="display:none;color:#B23A3A;font-size:13px;font-weight:600;margin-bottom:10px;"></div>
@@ -1389,9 +1414,9 @@ function wireDashEvents(p, tab){
       const file = e.target.files[0];
       if(!file) return;
       const statusEl = document.getElementById('upload-status');
-      if(file.size > 5*1024*1024){
+      if(file.size > 15*1024*1024){
         statusEl.style.display='block'; statusEl.style.color='#B23A3A';
-        statusEl.textContent = "Fichier trop volumineux (5 Mo max).";
+        statusEl.textContent = "Fichier trop volumineux (15 Mo max).";
         return;
       }
       statusEl.style.display='block'; statusEl.style.color='var(--ink-soft)';
@@ -1426,13 +1451,17 @@ function wireDashEvents(p, tab){
   if(tab==='profil'){
     document.getElementById('save-profile-btn').onclick = async ()=>{
       const saveBtn = document.getElementById('save-profile-btn');
+      const checkedStyles = document.querySelectorAll('input[name="pf-styles"]:checked');
+      const stylesArr = checkedStyles ? Array.prototype.map.call(checkedStyles, function(c){ return c.value; }) : [];
+      if(!stylesArr.length){ alert("Merci de cocher au moins un style que vous proposez."); return; }
       saveBtn.disabled = true;
       const newName = document.getElementById('pf-name').value.trim() || p.name;
       const updates = {
         name: newName,
         initials: newName.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(),
         city: document.getElementById('pf-city').value || p.city,
-        style: document.getElementById('pf-style').value,
+        style: stylesArr[0],
+        styles: stylesArr,
         rate: document.getElementById('pf-rate').value || p.rate,
         bio: document.getElementById('pf-bio').value || p.bio
       };
@@ -1441,7 +1470,7 @@ function wireDashEvents(p, tab){
       if(error){ alert("Erreur lors de l'enregistrement : " + error.message); return; }
       Object.assign(p, updates);
       document.getElementById('dash-name').textContent = p.name;
-      document.getElementById('dash-meta').textContent = `📍 ${p.city} — ${p.style}`;
+      document.getElementById('dash-meta').textContent = `📍 ${p.city} — ${formatStyles(p.styles)}`;
       const tag = document.getElementById('saved-tag');
       tag.style.display='inline';
       setTimeout(()=> tag.style.display='none', 2500);
@@ -1453,8 +1482,8 @@ function wireDashEvents(p, tab){
         const errorEl = document.getElementById('verif-error');
         const siret = document.getElementById('verif-siret').value.trim();
         const file = document.getElementById('verif-file').files[0];
-        if(siret && !/^\d{14}$/.test(siret)){
-          errorEl.textContent = "Si renseigné, le SIRET doit comporter exactement 14 chiffres.";
+        if(siret && !/^\d{9}$/.test(siret)){
+          errorEl.textContent = "Si renseigné, le SIREN doit comporter exactement 9 chiffres.";
           errorEl.style.display='block';
           return;
         }

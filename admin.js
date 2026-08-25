@@ -18,6 +18,13 @@ function escapeHtml(str){
     .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
 
+function formatStyles(stylesArr, fallbackStyle){
+  var arr = (stylesArr && stylesArr.length) ? stylesArr : (fallbackStyle ? [fallbackStyle] : []);
+  if(!arr.length) return '';
+  if(arr.length <= 2) return arr.join(', ');
+  return arr.slice(0,2).join(', ') + ' +' + (arr.length - 2);
+}
+
 function showLoginError(msg){
   var el = document.getElementById('login-error');
   el.textContent = msg;
@@ -108,11 +115,11 @@ async function loadPendingVerifications(){
         '<div class="admin-card-top">' +
           '<div>' +
             '<b>' + escapeHtml(p.name) + '</b>' +
-            '<div class="admin-sub">' + escapeHtml(p.city) + ' — ' + escapeHtml(p.style) + '</div>' +
+            '<div class="admin-sub">' + escapeHtml(p.city) + ' — ' + escapeHtml(formatStyles(p.styles, p.style)) + '</div>' +
           '</div>' +
           '<span class="admin-pill">En attente</span>' +
         '</div>' +
-        '<div class="admin-detail">SIRET : <b>' + escapeHtml(p.verification_siret || 'Non renseigné (photographe débutant)') + '</b></div>' +
+        '<div class="admin-detail">SIREN : <b>' + escapeHtml(p.verification_siret || 'Non renseigné (photographe débutant)') + '</b></div>' +
         '<div class="admin-detail">Soumis le : ' + (p.verification_submitted_at ? new Date(p.verification_submitted_at).toLocaleString('fr-FR') : '—') + '</div>' +
         '<div class="admin-actions">' +
           '<button class="admin-btn view" data-view-doc="' + p.id + '" data-doc-path="' + (p.verification_document_path||'') + '">Voir le justificatif</button>' +
@@ -337,7 +344,7 @@ async function loadPhotographersList(){
         '<div class="admin-card-top">' +
           '<div>' +
             '<b>' + escapeHtml(p.name) + '</b>' +
-            '<div class="admin-sub">' + escapeHtml(p.city) + ' — ' + escapeHtml(p.style) + (email ? ' · ' + escapeHtml(email) : '') + '</div>' +
+            '<div class="admin-sub">' + escapeHtml(p.city) + ' — ' + escapeHtml(formatStyles(p.styles, p.style)) + (email ? ' · ' + escapeHtml(email) : '') + '</div>' +
           '</div>' +
           '<span class="admin-pill">' + (isBanned ? 'Banni' : statusLabel[p.verification_status]) + '</span>' +
         '</div>' +
