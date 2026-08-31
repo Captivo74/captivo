@@ -609,7 +609,16 @@ function openSupport(){
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-tag photog">Support Captivo</div>
     <h3>Un problème, une question ?</h3>
-    <p style="color:var(--ink-soft);font-size:13.5px;line-height:1.6;margin:0 0 18px;">Remplissez le formulaire, votre message sera transmis directement à l'équipe Captivo — vous recevrez une réponse par email.</p>
+    <p style="color:var(--ink-soft);font-size:13.5px;line-height:1.6;margin:0 0 16px;">Contactez-nous directement sur WhatsApp pour une réponse rapide, ou passez par le formulaire pour un message détaillé.</p>
+    <a class="modal-submit" style="display:flex;align-items:center;justify-content:center;gap:9px;text-decoration:none;background:#25D366;color:#fff;margin-bottom:20px;" href="https://wa.me/33669108317?text=${encodeURIComponent("Bonjour, nouvelle demande depuis Captivo. (Merci d'envoyer ce message sans le modifier pour démarrer votre prise en charge.)")}" target="_blank" rel="noopener">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.6 6.3A8.9 8.9 0 0012 4a8.9 8.9 0 00-7.7 13.4L3 21l3.7-1.2A8.9 8.9 0 0012 21a8.9 8.9 0 006.3-15.3zM12 19.4a7.4 7.4 0 01-3.8-1l-.3-.2-2.8.9.9-2.7-.2-.3A7.4 7.4 0 1119.4 12 7.4 7.4 0 0112 19.4zm4-5.5c-.2-.1-1.3-.6-1.5-.7s-.4-.1-.5.1-.6.7-.7.9-.3.2-.5.1a6 6 0 01-1.8-1.1 6.7 6.7 0 01-1.2-1.5c-.1-.2 0-.4.1-.5l.3-.4.2-.3v-.3c0-.1-.5-1.3-.7-1.7s-.4-.4-.5-.4h-.5a.9.9 0 00-.6.3 2.7 2.7 0 00-.9 2 4.7 4.7 0 001 2.5 10.6 10.6 0 004 3.6c.6.2 1 .4 1.4.5a3.4 3.4 0 001.5.1 2.5 2.5 0 001.6-1.1 1.9 1.9 0 00.1-1.1c-.1-.1-.2-.2-.4-.3z"/></svg>
+      Nous écrire sur WhatsApp
+    </a>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+      <div style="flex:1;height:1px;background:var(--line-dark);"></div>
+      <span style="font-size:11.5px;color:var(--ink-soft);font-weight:600;">OU</span>
+      <div style="flex:1;height:1px;background:var(--line-dark);"></div>
+    </div>
     <form onsubmit="return submitSupport(event)">
       <div class="field"><label>Nom complet</label><input type="text" id="support-name" required></div>
       <div class="field"><label>Email</label><input type="email" id="support-email" required></div>
