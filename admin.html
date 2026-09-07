@@ -53,6 +53,37 @@
       <div class="field"><label>Mot de passe</label><input type="password" id="admin-pass" required></div>
       <button class="modal-submit photog" type="submit" id="login-btn">Se connecter</button>
     </form>
+    <p style="text-align:center;margin-top:14px;">
+      <a href="#" onclick="showAdminForgotPassword(); return false;" style="font-size:13px;color:var(--blue-500);text-decoration:none;font-weight:600;">Mot de passe oublié ?</a>
+    </p>
+  </div>
+</div>
+
+<div id="forgot-view" style="display:none;min-height:70vh;align-items:center;justify-content:center;padding:40px 20px;">
+  <div class="modal" style="position:static;box-shadow:0 20px 60px rgba(3,10,25,0.15);">
+    <div class="modal-tag photog">Mot de passe oublié</div>
+    <h3>Réinitialiser votre mot de passe</h3>
+    <div id="forgot-error" style="display:none;background:#FBE3E3;color:#B23A3A;border-radius:10px;padding:11px 14px;font-size:13px;font-weight:600;margin-bottom:14px;"></div>
+    <div id="forgot-success" style="display:none;background:#E4F5EA;color:#1F7A45;border-radius:10px;padding:11px 14px;font-size:13px;font-weight:600;margin-bottom:14px;"></div>
+    <form onsubmit="return submitAdminForgotPassword(event)">
+      <div class="field"><label>Email de votre compte admin</label><input type="email" id="forgot-admin-email" required></div>
+      <button class="modal-submit photog" type="submit" id="forgot-btn">Envoyer le lien de réinitialisation</button>
+    </form>
+    <p style="text-align:center;margin-top:14px;">
+      <a href="#" onclick="showAdminLogin(); return false;" style="font-size:13px;color:var(--blue-500);text-decoration:none;font-weight:600;">← Retour à la connexion</a>
+    </p>
+  </div>
+</div>
+
+<div id="new-password-view" style="display:none;min-height:70vh;align-items:center;justify-content:center;padding:40px 20px;">
+  <div class="modal" style="position:static;box-shadow:0 20px 60px rgba(3,10,25,0.15);">
+    <div class="modal-tag photog">Nouveau mot de passe</div>
+    <h3>Choisissez un nouveau mot de passe</h3>
+    <div id="new-password-error" style="display:none;background:#FBE3E3;color:#B23A3A;border-radius:10px;padding:11px 14px;font-size:13px;font-weight:600;margin-bottom:14px;"></div>
+    <form onsubmit="return submitAdminNewPassword(event)">
+      <div class="field"><label>Nouveau mot de passe</label><input type="password" id="admin-new-pass" required minlength="6" placeholder="6 caractères minimum"></div>
+      <button class="modal-submit photog" type="submit" id="new-password-btn">Valider le nouveau mot de passe</button>
+    </form>
   </div>
 </div>
 

@@ -94,6 +94,72 @@ async function logoutAdmin(){
   document.getElementById('admin-pass').value = '';
 }
 
+/* ---------------- MOT DE PASSE OUBLIÉ (ADMIN) ---------------- */
+
+function showAdminForgotPassword(){
+  document.getElementById('login-view').style.display = 'none';
+  document.getElementById('forgot-view').style.display = 'flex';
+}
+
+function showAdminLogin(){
+  document.getElementById('forgot-view').style.display = 'none';
+  document.getElementById('new-password-view').style.display = 'none';
+  document.getElementById('login-view').style.display = 'flex';
+}
+
+async function submitAdminForgotPassword(e){
+  e.preventDefault();
+  const btn = document.getElementById('forgot-btn');
+  btn.disabled = true;
+  const errorEl = document.getElementById('forgot-error');
+  const successEl = document.getElementById('forgot-success');
+  errorEl.style.display = 'none';
+  const email = document.getElementById('forgot-admin-email').value;
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.href });
+  btn.disabled = false;
+  if(error){
+    errorEl.textContent = error.message;
+    errorEl.style.display = 'block';
+    return false;
+  }
+  successEl.textContent = "Si un compte admin existe avec l'adresse " + email + ", un lien de réinitialisation vient d'être envoyé. Cliquez dessus pour choisir un nouveau mot de passe.";
+  successEl.style.display = 'block';
+  return false;
+}
+
+async function submitAdminNewPassword(e){
+  e.preventDefault();
+  const btn = document.getElementById('new-password-btn');
+  btn.disabled = true;
+  const errorEl = document.getElementById('new-password-error');
+  errorEl.style.display = 'none';
+  const newPassword = document.getElementById('admin-new-pass').value;
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  btn.disabled = false;
+  if(error){
+    errorEl.textContent = error.message;
+    errorEl.style.display = 'block';
+    return false;
+  }
+  document.getElementById('new-password-view').innerHTML = `
+    <div class="modal" style="position:static;box-shadow:0 20px 60px rgba(3,10,25,0.15);">
+      <div class="modal-tag photog">Mot de passe modifié ✔</div>
+      <h3>C'est fait</h3>
+      <p style="color:var(--ink-soft);font-size:14px;line-height:1.6;margin:0 0 18px;">Votre mot de passe admin a été mis à jour. Vous pouvez vous connecter normalement.</p>
+      <button class="modal-submit photog" onclick="showAdminLogin()">Aller à la connexion</button>
+    </div>
+  `;
+  return false;
+}
+
+supabase.auth.onAuthStateChange(function(event){
+  if(event === 'PASSWORD_RECOVERY'){
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('forgot-view').style.display = 'none';
+    document.getElementById('new-password-view').style.display = 'flex';
+  }
+});
+
 /* ---------------- VÉRIFICATIONS EN ATTENTE ---------------- */
 
 async function loadPendingVerifications(){

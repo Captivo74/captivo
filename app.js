@@ -1047,7 +1047,9 @@ async function logout(){
   showHome();
 }
 function closeAuth(){ document.getElementById('overlay').style.display='none'; }
-document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeAuth(); });
+// La fenêtre (inscription, connexion, réservation...) ne se ferme plus toute seule
+// au clic à côté — évite de perdre ce qu'on est en train de taper par erreur.
+// Elle reste fermable volontairement via la croix ✕.
 
 /* ---------------- ESPACE PHOTOGRAPHE — TABLEAU DE BORD ---------------- */
 var frDays = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
