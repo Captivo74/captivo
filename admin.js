@@ -837,3 +837,31 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('Service worker non enregistré :', e); });
   });
 }
+
+/* ---------------- TEST MANUEL DES RAPPELS ---------------- */
+
+async function testSendReminders(){
+  var btn = document.getElementById('reminders-test-btn');
+  var statusEl = document.getElementById('reminders-status');
+  btn.disabled = true;
+  btn.textContent = 'Envoi en cours…';
+  statusEl.style.display = 'none';
+
+  var res = await supabase.functions.invoke('send-reminders', { body: {} });
+
+  btn.disabled = false;
+  btn.textContent = 'Envoyer les rappels maintenant';
+  statusEl.style.display = 'block';
+
+  if(res.error){
+    statusEl.style.background = '#FBE3E3'; statusEl.style.color = '#B23A3A';
+    statusEl.textContent = "Erreur : " + res.error.message;
+    return;
+  }
+
+  var count = (res.data && res.data.reminders_sent) || 0;
+  statusEl.style.background = '#E4F5EA'; statusEl.style.color = '#1F7A45';
+  statusEl.textContent = count > 0
+    ? count + " rappel(s) envoyé(s) pour les rendez-vous de demain."
+    : "Aucun rendez-vous confirmé pour demain pour le moment — rien à envoyer.";
+}

@@ -545,7 +545,7 @@ async function confirmBookingRequest(p, slot, style){
     client_id: currentUser.id,
     client_name: currentUser.name,
     client_email: currentUser.email || '—',
-    style, slot_label: slot.label, status:'pending', client_notified:true
+    style, slot_label: slot.label, slot_date: slot.slot_date || null, status:'pending', client_notified:true
   }).select().single();
 
   if(error){
@@ -690,7 +690,7 @@ async function cancelBookingNow(reqId){
   const { data: req } = await supabase.from('booking_requests').select('*').eq('id', reqId).single();
   await supabase.from('booking_requests').update({ status:'cancelled_by_client' }).eq('id', reqId);
   if(req){
-    await supabase.from('slots').insert({ photographer_id: req.photographer_id, label: req.slot_label });
+    await supabase.from('slots').insert({ photographer_id: req.photographer_id, label: req.slot_label, slot_date: req.slot_date || null });
   }
   await openClientBookings();
 }
@@ -1539,7 +1539,7 @@ async function submitDecline(e, reqId){
 
   if(!error && req){
     const p = currentUser.photographerRef;
-    await supabase.from('slots').insert({ photographer_id: p.id, label: req.slot_label });
+    await supabase.from('slots').insert({ photographer_id: p.id, label: req.slot_label, slot_date: req.slot_date || null });
     await fetchPhotographerSlots(p);
   }
   closeAuth();
@@ -1564,7 +1564,7 @@ function wireDashEvents(p, tab){
         errorEl.style.display='block';
         return;
       }
-      const { error } = await supabase.from('slots').insert({ photographer_id: p.id, label });
+      const { error } = await supabase.from('slots').insert({ photographer_id: p.id, label, slot_date: d });
       if(error){
         errorEl.textContent = "Erreur : " + error.message;
         errorEl.style.display='block';
@@ -1596,7 +1596,7 @@ function wireDashEvents(p, tab){
         btn.disabled = true;
         const req = dashRequestsCache.find(x=>x.id===btn.dataset.cancel);
         await supabase.from('booking_requests').update({ status:'cancelled_by_photographer', client_notified:false }).eq('id', btn.dataset.cancel);
-        if(req) await supabase.from('slots').insert({ photographer_id: p.id, label: req.slot_label });
+        if(req) await supabase.from('slots').insert({ photographer_id: p.id, label: req.slot_label, slot_date: req.slot_date || null });
         await fetchPhotographerSlots(p);
         await setDashTab('demandes');
       };

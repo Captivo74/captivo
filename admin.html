@@ -331,6 +331,20 @@
         <div id="maintenance-status" style="margin:18px 0;padding:16px 18px;border-radius:12px;font-weight:700;font-size:14px;"></div>
         <button class="save-btn" id="maintenance-toggle-btn">Chargement…</button>
       </div>
+
+      <div class="dash-card" style="margin-top:18px;">
+        <div class="admin-section-head">
+          <div class="admin-section-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+          </div>
+          <div>
+            <h3>Rappels de rendez-vous</h3>
+            <p class="hint">Un email de rappel est envoyé automatiquement chaque jour à 18h (client + photographe) pour tout rendez-vous confirmé le lendemain. Utilisez ce bouton pour déclencher l'envoi immédiatement, sans attendre — utile pour tester.</p>
+          </div>
+        </div>
+        <div id="reminders-status" style="margin:14px 0;padding:14px 16px;border-radius:12px;font-size:13.5px;display:none;"></div>
+        <button class="admin-btn view" id="reminders-test-btn" onclick="testSendReminders()">Envoyer les rappels maintenant</button>
+      </div>
     </section>
   </main>
 </div>
