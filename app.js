@@ -45,7 +45,7 @@ function mapDbPhotographer(row){
     verification_status: row.verification_status || 'unverified',
     verification_siret: row.verification_siret || '',
     verification_note: row.verification_note || '',
-    slots: (row.slots || []).map(s=>({id:s.id, label:s.label}))
+    slots: (row.slots || []).map(s=>({id:s.id, label:s.label, slot_date:s.slot_date}))
   };
 }
 
@@ -1235,7 +1235,7 @@ function showPublicPreview(){
 
 async function fetchPhotographerSlots(p){
   const { data } = await supabase.from('slots').select('*').eq('photographer_id', p.id).order('created_at');
-  p.slots = (data || []).map(s=>({id:s.id, label:s.label}));
+  p.slots = (data || []).map(s=>({id:s.id, label:s.label, slot_date:s.slot_date}));
 }
 async function fetchPhotographerRequests(p){
   const { data } = await supabase.from('booking_requests').select('*').eq('photographer_id', p.id).order('created_at', {ascending:false});
