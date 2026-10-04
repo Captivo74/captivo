@@ -195,6 +195,12 @@ styleSelect.addEventListener('change', runSearch);
 
 // Empêche toute donnée saisie par un utilisateur (nom, bio, avis, message...) d'être
 // interprétée comme du code HTML quand elle est affichée à d'autres visiteurs.
+// Signale une action importante aux statistiques (Plausible), sans jamais
+// faire planter le site si le script est bloqué ou absent (ex. bloqueur de pub).
+function trackEvent(name){
+  try{ if(typeof plausible === 'function') plausible(name); } catch(e){}
+}
+
 function escapeHtml(str){
   if(str === null || str === undefined) return '';
   return String(str)
@@ -257,6 +263,7 @@ function runSearch(){
   const city = normalize(document.getElementById('q-city').value.trim());
   const style = document.getElementById('q-style').value;
   if(!name && !city && !style){ showHome(); return; }
+  trackEvent('Recherche');
   const filtered = photographers.filter(p=>{
     const okName = name ? fuzzyIncludes(normalize(p.name), name) : true;
     const okCity = city ? fuzzyIncludes(normalize(p.city), city) : true;
@@ -313,6 +320,7 @@ var currentProfile = null;
 async function showProfilePage(name){
   const p = photographers.find(x=>x.name===name);
   if(!p) return;
+  trackEvent('Vue profil photographe');
   currentProfile = p;
   document.getElementById('home-content').style.display='none';
   document.getElementById('results-view').style.display='none';
@@ -454,6 +462,7 @@ async function confirmBookingRequest(p, slot, style){
     return;
   }
 
+  trackEvent('Demande de réservation');
   await supabase.from('slots').delete().eq('id', slot.id);
   p.slots = p.slots.filter(s=>s.id!==slot.id);
   if(document.getElementById('profile-view').style.display==='block' && currentProfile===p){
@@ -1037,6 +1046,7 @@ async function submitAuth(e, type, mode){
       if(existingIdx>=0) photographers[existingIdx] = photographerRef;
       else photographers.push(photographerRef);
       currentUser = { type, id: user.id, name: photographerRef.name, email, photographerRef };
+      if(mode==='signup') trackEvent('Inscription photographe');
       renderHeader();
       await openDashboard();
       return false;
@@ -1051,6 +1061,7 @@ async function submitAuth(e, type, mode){
 
     const displayName = user.user_metadata && user.user_metadata.full_name ? user.user_metadata.full_name : email.split('@')[0];
     currentUser = { type, id: user.id, name: displayName, email, unseenCount:0 };
+    if(mode==='signup') trackEvent('Inscription client');
     renderHeader();
     refreshClientUnseenCount();
     if(pendingBooking){
