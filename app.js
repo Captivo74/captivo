@@ -89,7 +89,13 @@ async function checkMaintenanceMode(){
 function showMaintenancePage(message){
   document.body.innerHTML = `
     <div class="maintenance-page">
-      <img src="assets/maintenance.jpg" alt="Captivo est en maintenance" class="maintenance-img">
+      <div class="maintenance-card">
+        <div class="maintenance-ic">🛠️</div>
+        <h1>Captivo revient très vite</h1>
+        <p>${escapeHtml(message || "Nous effectuons actuellement une mise à jour du site pour l'améliorer. Merci de votre patience, on revient dans un instant.")}</p>
+        <div class="maintenance-progress"><div class="maintenance-progress-bar"></div></div>
+        <div class="maintenance-progress-label">Mise à jour en cours…</div>
+      </div>
     </div>
   `;
 }
