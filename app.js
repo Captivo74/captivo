@@ -201,6 +201,38 @@ function trackEvent(name){
   try{ if(typeof plausible === 'function') plausible(name); } catch(e){}
 }
 
+// Redimensionne et compresse une image côté navigateur avant son envoi, pour que
+// les fiches photographes se chargent vite chez les visiteurs. Ne touche jamais
+// à la photo originale sur l'ordinateur du photographe, juste à la copie envoyée.
+function compressImage(file, maxDimension, quality){
+  maxDimension = maxDimension || 1920;
+  quality = quality || 0.82;
+  return new Promise(function(resolve, reject){
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onerror = function(){ reject(new Error("Impossible de lire le fichier.")); };
+    reader.onload = function(){
+      img.onerror = function(){ reject(new Error("Fichier image invalide.")); };
+      img.onload = function(){
+        let { width, height } = img;
+        if(width > maxDimension || height > maxDimension){
+          if(width > height){ height = Math.round(height * (maxDimension / width)); width = maxDimension; }
+          else { width = Math.round(width * (maxDimension / height)); height = maxDimension; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        canvas.toBlob(function(blob){
+          if(!blob){ reject(new Error("La compression a échoué.")); return; }
+          resolve(new File([blob], (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' }));
+        }, 'image/jpeg', quality);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function escapeHtml(str){
   if(str === null || str === undefined) return '';
   return String(str)
@@ -1589,10 +1621,19 @@ function wireDashEvents(p, tab){
         return;
       }
       statusEl.style.display='block'; statusEl.style.color='var(--ink-soft)';
+      statusEl.textContent = "Optimisation de la photo…";
+      let fileToUpload = file;
+      try{
+        fileToUpload = await compressImage(file);
+      } catch(compressError){
+        // Si la compression échoue pour une raison quelconque, on envoie quand
+        // même la photo d'origine plutôt que de bloquer le photographe.
+        console.warn('Compression impossible, envoi du fichier original :', compressError);
+      }
       statusEl.textContent = "Envoi en cours…";
-      const ext = file.name.split('.').pop();
+      const ext = fileToUpload.name.split('.').pop();
       const path = `${p.id}/${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from('portfolios').upload(path, file);
+      const { error: uploadError } = await supabase.storage.from('portfolios').upload(path, fileToUpload);
       if(uploadError){
         statusEl.style.color='#B23A3A';
         statusEl.textContent = "Erreur : " + uploadError.message;
