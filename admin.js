@@ -77,6 +77,7 @@ async function submitAdminLogin(e){
     loadAdminsList();
     loadBansList();
     loadReviews();
+    loadReportsList();
     return false;
   } catch(err){
     btn.disabled = false;
@@ -705,6 +706,59 @@ function setAdminTab(tab){
   document.querySelectorAll('.admin-section').forEach(function(s){ s.style.display = s.dataset.section===tab ? 'block' : 'none'; });
   if(tab==='clients') loadClientsList();
   if(tab==='maintenance') loadMaintenanceStatus();
+  if(tab==='reports') loadReportsList();
+}
+
+/* ---------------- SIGNALEMENTS DE PROFIL ---------------- */
+
+async function loadReportsList(){
+  var listEl = document.getElementById('reports-list');
+  listEl.innerHTML = '<div class="admin-empty">Chargement…</div>';
+  var res = await supabase.from('profile_reports').select('*').order('created_at', { ascending: false });
+  var rows = res.data || [];
+  var newCount = rows.filter(function(r){ return r.status === 'new'; }).length;
+  document.getElementById('reports-count').textContent = newCount;
+
+  if(!rows.length){
+    listEl.innerHTML = '<div class="admin-empty">Aucun signalement pour le moment.</div>';
+    return;
+  }
+
+  listEl.innerHTML = rows.map(function(r){
+    return (
+      '<div class="admin-card">' +
+        '<div class="admin-card-top">' +
+          '<div>' +
+            '<b>' + escapeHtml(r.photographer_name || 'Profil supprimé') + '</b>' +
+            '<div class="admin-sub">' + escapeHtml(r.reason) + ' · ' + new Date(r.created_at).toLocaleDateString('fr-FR') + (r.reporter_email ? ' · ' + escapeHtml(r.reporter_email) : '') + '</div>' +
+          '</div>' +
+          '<span class="admin-pill">' + (r.status === 'new' ? 'Nouveau' : 'Traité') + '</span>' +
+        '</div>' +
+        (r.description ? '<div class="admin-detail">« ' + escapeHtml(r.description) + ' »</div>' : '') +
+        '<div class="admin-actions">' +
+          (r.status === 'new' ? '<button class="admin-btn approve" data-report-reviewed="' + r.id + '">Marquer comme traité</button>' : '') +
+          '<button class="admin-btn reject" data-report-delete="' + r.id + '">Supprimer</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }).join('');
+
+  Array.prototype.forEach.call(listEl.querySelectorAll('[data-report-reviewed]'), function(btn){
+    btn.onclick = async function(){
+      btn.disabled = true;
+      await supabase.from('profile_reports').update({ status: 'reviewed' }).eq('id', btn.dataset.reportReviewed);
+      loadReportsList();
+    };
+  });
+
+  Array.prototype.forEach.call(listEl.querySelectorAll('[data-report-delete]'), function(btn){
+    btn.onclick = async function(){
+      if(!confirm("Supprimer définitivement ce signalement ?")) return;
+      btn.disabled = true;
+      await supabase.from('profile_reports').delete().eq('id', btn.dataset.reportDelete);
+      loadReportsList();
+    };
+  });
 }
 
 /* ---------------- MODE MAINTENANCE ---------------- */

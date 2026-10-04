@@ -126,6 +126,10 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17.3l-6.2 3.3 1.2-6.9L2 8.9l7-1L12 1.5l3 6.4 7 1-5 4.8 1.2 6.9z"/></svg>
           Avis <span id="reviews-count" class="admin-tab-badge">0</span>
         </button>
+        <button class="dash-tab admin-tab" data-tab="reports" onclick="setAdminTab('reports')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22V15"/></svg>
+          Signalements <span id="reports-count" class="admin-tab-badge">0</span>
+        </button>
         <button class="dash-tab admin-tab" data-tab="maintenance" onclick="setAdminTab('maintenance')">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a4 4 0 00-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 005.4-5.4l-2.1 2.1-2.6-2.6z"/></svg>
           Maintenance
@@ -295,6 +299,21 @@
           </div>
         </div>
         <div id="reviews-list"></div>
+      </div>
+    </section>
+
+    <section class="admin-section" data-section="reports" style="display:none;">
+      <div class="dash-card">
+        <div class="admin-section-head">
+          <div class="admin-section-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22V15"/></svg>
+          </div>
+          <div>
+            <h3>Signalements de profils</h3>
+            <p class="hint">Signalements envoyés par des visiteurs depuis une fiche photographe.</p>
+          </div>
+        </div>
+        <div id="reports-list"></div>
       </div>
     </section>
 

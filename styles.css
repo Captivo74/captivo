@@ -351,6 +351,9 @@
   .back-link{background:rgba(255,255,255,0.08);border:1px solid var(--line);color:var(--ice-100);
     font-size:13px;font-weight:600;padding:8px 16px;border-radius:100px;margin-bottom:26px;}
   .back-link:hover{background:rgba(255,255,255,0.14);}
+  .report-link{background:none;border:none;color:rgba(255,255,255,0.45);font-size:12px;font-weight:500;
+    margin-top:14px;cursor:pointer;padding:4px 0;}
+  .report-link:hover{color:rgba(255,255,255,0.75);text-decoration:underline;}
   .profile-head{display:flex;align-items:center;gap:20px;}
   .profile-avatar{
     width:84px;height:84px;border-radius:20px;flex-shrink:0;

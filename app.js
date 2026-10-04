@@ -313,6 +313,71 @@ function renderResults(list, label){
   });
 }
 
+/* ---------------- SIGNALEMENT DE PROFIL ---------------- */
+
+function openReportProfile(){
+  if(!currentProfile) return;
+  document.getElementById('overlay').style.display='flex';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-tag client">Signaler un profil</div>
+    <h3>Signaler « ${escapeHtml(currentProfile.name)} »</h3>
+    <p style="color:var(--ink-soft);font-size:13.5px;line-height:1.6;margin:0 0 18px;">Votre signalement est transmis directement à l'équipe Captivo, qui l'examinera rapidement.</p>
+    <form onsubmit="return submitReportProfile(event)">
+      <div class="field">
+        <label>Motif</label>
+        <select id="report-reason" required>
+          <option value="">Choisissez un motif</option>
+          <option>Photos trompeuses ou volées</option>
+          <option>Profil suspect / arnaque</option>
+          <option>Contenu inapproprié</option>
+          <option>Comportement irrespectueux</option>
+          <option>Fausses informations (tarifs, secteur...)</option>
+          <option>Autre</option>
+        </select>
+      </div>
+      <div class="field"><label>Précisez (facultatif)</label><textarea id="report-description" placeholder="Donnez-nous plus de détails si possible"></textarea></div>
+      <div class="field"><label>Votre email (facultatif, pour qu'on puisse vous répondre)</label><input type="email" id="report-email"></div>
+      <button class="modal-submit client" type="submit">Envoyer le signalement</button>
+    </form>
+  `;
+}
+
+async function submitReportProfile(e){
+  e.preventDefault();
+  const btn = e.target.querySelector('button[type="submit"]');
+  if(btn) btn.disabled = true;
+  const reason = document.getElementById('report-reason').value;
+  const description = document.getElementById('report-description').value;
+  const reporterEmail = document.getElementById('report-email').value;
+
+  const { error } = await supabase.from('profile_reports').insert({
+    photographer_id: currentProfile.id,
+    photographer_name: currentProfile.name,
+    reason, description: description || null,
+    reporter_email: reporterEmail || null,
+  });
+
+  if(error){
+    if(btn) btn.disabled = false;
+    document.getElementById('modal-body').innerHTML = `
+      <div class="modal-tag client">Erreur</div>
+      <h3>Le signalement n'a pas pu être envoyé</h3>
+      <p style="color:var(--ink-soft);font-size:14px;">${escapeHtml(error.message)}</p>
+      <button class="modal-submit client" onclick="closeAuth()">Fermer</button>
+    `;
+    return false;
+  }
+
+  trackEvent('Signalement de profil');
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-tag client">Signalement envoyé ✔</div>
+    <h3>Merci pour votre vigilance</h3>
+    <p style="color:var(--ink-soft);font-size:14px;line-height:1.6;margin:0 0 18px;">Notre équipe va examiner ce profil rapidement.</p>
+    <button class="modal-submit client" onclick="closeAuth()">Fermer</button>
+  `;
+  return false;
+}
+
 /* ---------------- PROFIL PHOTOGRAPHE ---------------- */
 var pendingBooking = null; // { name, slot }
 var currentProfile = null;
