@@ -704,7 +704,56 @@ function setAdminTab(tab){
   document.querySelectorAll('.admin-tab').forEach(function(t){ t.classList.toggle('active', t.dataset.tab===tab); });
   document.querySelectorAll('.admin-section').forEach(function(s){ s.style.display = s.dataset.section===tab ? 'block' : 'none'; });
   if(tab==='clients') loadClientsList();
+  if(tab==='maintenance') loadMaintenanceStatus();
 }
+
+/* ---------------- MODE MAINTENANCE ---------------- */
+
+var __maintenanceCurrentlyOn = false;
+
+async function loadMaintenanceStatus(){
+  var statusEl = document.getElementById('maintenance-status');
+  var btn = document.getElementById('maintenance-toggle-btn');
+  statusEl.textContent = 'Chargement…';
+  var res = await supabase.from('site_settings').select('maintenance_mode').eq('id', 1).maybeSingle();
+  if(res.error || !res.data){
+    statusEl.style.background = '#FBE3E3'; statusEl.style.color = '#B23A3A';
+    statusEl.textContent = "Impossible de lire le réglage (le script SQL a-t-il bien été exécuté ?).";
+    btn.style.display = 'none';
+    return;
+  }
+  __maintenanceCurrentlyOn = !!res.data.maintenance_mode;
+  renderMaintenanceStatus();
+}
+
+function renderMaintenanceStatus(){
+  var statusEl = document.getElementById('maintenance-status');
+  var btn = document.getElementById('maintenance-toggle-btn');
+  if(__maintenanceCurrentlyOn){
+    statusEl.style.background = '#FBE3E3'; statusEl.style.color = '#B23A3A';
+    statusEl.textContent = '🔴 Le site est actuellement EN MAINTENANCE — les visiteurs ne peuvent rien faire.';
+    btn.textContent = 'Désactiver la maintenance (remettre le site en ligne)';
+    btn.className = 'save-btn';
+  } else {
+    statusEl.style.background = '#E4F5EA'; statusEl.style.color = '#1F7A45';
+    statusEl.textContent = '🟢 Le site fonctionne normalement.';
+    btn.textContent = 'Activer la maintenance (bloquer le site)';
+    btn.className = 'admin-btn reject';
+  }
+  btn.disabled = false;
+}
+
+document.getElementById('maintenance-toggle-btn').onclick = async function(){
+  var btn = this;
+  var turningOn = !__maintenanceCurrentlyOn;
+  if(turningOn && !confirm("Le site public va devenir inaccessible pour tout le monde immédiatement. Continuer ?")) return;
+  btn.disabled = true;
+  var res = await supabase.from('site_settings').update({ maintenance_mode: turningOn }).eq('id', 1);
+  btn.disabled = false;
+  if(res.error){ alert("Erreur : " + res.error.message); return; }
+  __maintenanceCurrentlyOn = turningOn;
+  renderMaintenanceStatus();
+};
 
 /* ---------------- PWA : installation ---------------- */
 var deferredInstallPrompt = null;

@@ -72,7 +72,33 @@ async function loadPhotographersFromDB(){
     if(document.getElementById('results-view').style.display==='block') runSearch();
   } catch(e){ console.warn('Connexion Supabase impossible :', e); }
 }
-loadPhotographersFromDB();
+
+// Mode maintenance : si activé par l'admin, on bloque tout le reste du site
+// et on affiche une page unique, sans rien charger d'autre.
+async function checkMaintenanceMode(){
+  try{
+    const { data } = await supabase.from('site_settings').select('maintenance_mode, maintenance_message').eq('id', 1).maybeSingle();
+    if(data && data.maintenance_mode){
+      showMaintenancePage(data.maintenance_message);
+      return true;
+    }
+  } catch(e){ console.warn('Vérification du mode maintenance impossible :', e); }
+  return false;
+}
+
+function showMaintenancePage(message){
+  document.body.innerHTML = `
+    <div class="maintenance-page">
+      <img src="assets/maintenance.jpg" alt="Captivo est en maintenance" class="maintenance-img">
+    </div>
+  `;
+}
+
+(async function initSite(){
+  const inMaintenance = await checkMaintenanceMode();
+  if(inMaintenance) return;
+  loadPhotographersFromDB();
+})();
 
 supabase.auth.onAuthStateChange(async (event, session)=>{
   if(event === 'PASSWORD_RECOVERY') openSetNewPassword();
@@ -121,6 +147,12 @@ var styleIcons = {
   "Nouveau-né":"M12 21c4-2 7-5 7-9a7 7 0 00-14 0c0 4 3 7 7 9z",
   "Vidéaste":"M15 10l5-3v10l-5-3zM3 6h11a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V7a1 1 0 011-1z",
 };
+var styleEmojis = {
+  "Mariage":"💍", "Portrait":"🙂", "Famille":"👨‍👩‍👧", "Grossesse":"🤰",
+  "Événementiel":"🎉", "Corporate":"💼", "Immobilier":"🏠", "Mode":"👗",
+  "Culinaire":"🍽️", "Sport":"🏅", "Architecture":"🏛️", "Paysage":"🏞️",
+  "Nature":"🌿", "Nouveau-né":"👶", "Vidéaste":"🎥",
+};
 var styleDescriptions = {
   "Mariage":"Cérémonie, préparatifs, soirée",
   "Portrait":"Individuel, duo, studio",
@@ -142,7 +174,7 @@ var stylesGrid = document.getElementById('styles-grid');
 Object.keys(styleIcons).forEach(s=>{
   const d = document.createElement('div');
   d.className='style-card';
-  d.innerHTML = `<div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="${styleIcons[s]}"/></svg></div><span>${s}</span><p class="style-desc">${styleDescriptions[s]||''}</p>`;
+  d.innerHTML = `<div class="ic">${styleEmojis[s]||'📷'}</div><span>${s}</span><p class="style-desc">${styleDescriptions[s]||''}</p>`;
   d.onclick = ()=>{ document.getElementById('q-name').value=''; document.getElementById('q-city').value=''; searchByStyle(s); };
   stylesGrid.appendChild(d);
 });
