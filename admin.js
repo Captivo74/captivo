@@ -707,6 +707,117 @@ function setAdminTab(tab){
   if(tab==='clients') loadClientsList();
   if(tab==='maintenance') loadMaintenanceStatus();
   if(tab==='reports') loadReportsList();
+  if(tab==='seo') detectMissingCityPages();
+}
+
+/* ---------------- PAGES VILLES (SEO) ---------------- */
+
+// Tenir cette liste à jour : chaque fois qu'une page ville est réellement
+// déposée sur GitHub, ajoute son nom ici pour qu'elle ne soit plus proposée.
+var EXISTING_CITY_PAGES = ['Annecy', 'Chambéry', 'Annemasse', 'Thonon-les-Bains', 'Grenoble', 'Lyon', 'Genève', 'Aix-les-Bains', 'Chablais'];
+
+function slugifyCity(name){
+  return name.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // retire les accents
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+async function detectMissingCityPages(){
+  var btn = document.getElementById('seo-detect-btn');
+  var listEl = document.getElementById('seo-missing-list');
+  btn.disabled = true;
+  listEl.innerHTML = '<div class="admin-empty">Recherche en cours…</div>';
+
+  var res = await supabase.from('photographers').select('city');
+  var allCities = (res.data || []).map(function(r){ return (r.city || '').trim(); }).filter(Boolean);
+  var existingNormalized = EXISTING_CITY_PAGES.map(function(c){ return c.toLowerCase(); });
+  var uniqueMissing = [];
+  var seen = {};
+  allCities.forEach(function(c){
+    var key = c.toLowerCase();
+    if(existingNormalized.indexOf(key) === -1 && !seen[key] && key !== 'secteur non renseigné' && key !== 'ville non renseignée'){
+      seen[key] = true;
+      uniqueMissing.push(c);
+    }
+  });
+
+  btn.disabled = false;
+  document.getElementById('seo-count').textContent = uniqueMissing.length;
+
+  if(!uniqueMissing.length){
+    listEl.innerHTML = '<div class="admin-empty">Aucune nouvelle ville à ajouter — toutes les villes avec au moins un photographe ont déjà leur page.</div>';
+    return;
+  }
+
+  listEl.innerHTML = uniqueMissing.map(function(city){
+    return (
+      '<div class="admin-card">' +
+        '<div class="admin-card-top">' +
+          '<div><b>' + escapeHtml(city) + '</b><div class="admin-sub">Pas encore de page dédiée</div></div>' +
+          '<button class="admin-btn approve" data-download-city="' + escapeHtml(city) + '">Télécharger la page</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }).join('');
+
+  Array.prototype.forEach.call(listEl.querySelectorAll('[data-download-city]'), function(btn){
+    btn.onclick = function(){ downloadCityPage(btn.dataset.downloadCity); };
+  });
+}
+
+function downloadCityPage(cityName){
+  var slug = slugifyCity(cityName);
+  var html = generateCityPageHTML(cityName, slug);
+  var blob = new Blob([html], { type: 'text/html' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = slug + '.html';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function generateCityPageHTML(nom, slug){
+  var slugUrl = encodeURIComponent(nom);
+  var autresVillesLiens = EXISTING_CITY_PAGES.map(function(v){
+    return '<a href="' + slugifyCity(v) + '.html" style="color:var(--blue-600);font-weight:600;text-decoration:none;">' + v + '</a>';
+  }).join(' &nbsp;·&nbsp; ');
+
+  return '<!DOCTYPE html>\n<html lang="fr">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+    '<title>Photographe à ' + nom + ' — Réservez en ligne | Captivo</title>\n' +
+    '<meta name="description" content="Trouvez et réservez un photographe indépendant à ' + nom + ' : portfolios réels, avis vérifiés, tarifs affichés. Réservation directe en ligne sur Captivo.">\n' +
+    '<link rel="canonical" href="https://captivo.fr/' + slug + '.html">\n' +
+    '<link rel="manifest" href="manifest.json">\n<meta name="theme-color" content="#07070C">\n' +
+    '<link rel="icon" href="icons/icon-32.png" sizes="32x32">\n<link rel="apple-touch-icon" href="icons/icon-180.png">\n' +
+    '<link rel="preconnect" href="https://fonts.googleapis.com">\n' +
+    '<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">\n' +
+    '<link rel="stylesheet" href="styles.css">\n' +
+    '<script async src="https://plausible.io/js/pa-WSgH5DSkh-IFXtRhiySmt.js"></' + 'script>\n' +
+    '<script>window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init()</' + 'script>\n' +
+    '<script src="cookie-consent.js" defer></' + 'script>\n' +
+    '</head>\n<body>\n\n' +
+    '<header><div class="header-inner"><a href="index.html" style="text-decoration:none;"><span class="logo-text">Captivo</span></a>' +
+    '<div class="header-actions"><a class="btn btn-gold" style="text-decoration:none;" href="index.html?ville=' + slugUrl + '">Voir les photographes</a></div></div></header>\n\n' +
+    '<section class="hero" style="padding-bottom:60px;">\n' +
+    '<div class="eyebrow">Photographes indépendants à ' + nom + '</div>\n' +
+    '<h1>Trouvez votre <em>photographe</em><br>à ' + nom + '.</h1>\n' +
+    '<p class="sub">Captivo réunit des photographes indépendants à ' + nom + ' et dans sa région — mariage, portrait, famille et bien d\'autres styles, avec portfolios réels et réservation directe.</p>\n' +
+    '<div style="text-align:center;margin-top:36px;"><a class="search-btn" style="display:inline-flex;text-decoration:none;" href="index.html?ville=' + slugUrl + '">🔍 Voir les photographes disponibles à ' + nom + '</a></div>\n' +
+    '<div class="trust-row"><span>✓ Portfolios réels</span><span>✓ Profils vérifiés</span><span>✓ Contact direct, sans commission</span></div>\n' +
+    '</section>\n\n' +
+    '<main id="home-content">\n' +
+    '<section class="section" style="padding-top:0;"><div class="section-head"><div class="tag">Pourquoi Captivo</div>' +
+    '<h2>Réserver un photographe à ' + nom + ', simplement</h2>' +
+    '<p>Comparez les portfolios, avis et tarifs des photographes indépendants actifs à ' + nom + ', et réservez directement en ligne — sans appel ni commission.</p></div></section>\n\n' +
+    '<section class="section" style="padding-top:0;"><div class="section-head"><div class="tag">Autres villes</div><h2>Captivo près de ' + nom + '</h2></div>' +
+    '<div class="trust-row" style="justify-content:flex-start;gap:18px;flex-wrap:wrap;">' + autresVillesLiens + '</div></section>\n\n' +
+    '<section class="section" style="padding-top:0;"><div class="cta-band"><h2 class="serif">Photographe indépendant à ' + nom + ' ?</h2>' +
+    '<p>Rejoignez Captivo et laissez les bons clients vous trouver, sans démarchage.</p>' +
+    '<a class="btn btn-gold" style="text-decoration:none;" href="index.html">Ouvrir mon espace pro</a></div></section>\n' +
+    '</main>\n\n' +
+    '<footer><span class="logo-text footer-logo-text">Captivo</span>Réservation de photographes indépendants — un tirage unique pour chaque recherche.' +
+    '<div class="footer-legal"><a href="index.html">Accueil</a><span>·</span><a href="mentions-legales.html">Mentions légales</a><span>·</span><a href="cgu.html">CGU</a><span>·</span><a href="confidentialite.html">Politique de confidentialité</a></div></footer>\n\n' +
+    '</body>\n</html>';
 }
 
 /* ---------------- SIGNALEMENTS DE PROFIL ---------------- */

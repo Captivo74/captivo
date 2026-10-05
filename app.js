@@ -103,7 +103,19 @@ function showMaintenancePage(message){
 (async function initSite(){
   const inMaintenance = await checkMaintenanceMode();
   if(inMaintenance) return;
-  loadPhotographersFromDB();
+  await loadPhotographersFromDB();
+
+  // Arrivée depuis une page ville (ex. annecy.html) : pré-remplit et lance la recherche
+  const urlParams = new URLSearchParams(window.location.search);
+  const ville = urlParams.get('ville');
+  const styleParam = urlParams.get('style');
+  if(ville || styleParam){
+    const cityInput = document.getElementById('q-city');
+    const styleSelect = document.getElementById('q-style');
+    if(ville && cityInput) cityInput.value = ville;
+    if(styleParam && styleSelect) styleSelect.value = styleParam;
+    runSearch();
+  }
 })();
 
 supabase.auth.onAuthStateChange(async (event, session)=>{
