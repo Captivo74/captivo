@@ -497,6 +497,25 @@ async function showProfilePage(name){
     document.getElementById('reviews-title').textContent = 'Avis clients';
     reviewsEl.innerHTML = `<div class="empty-state">Aucun avis pour le moment.</div>`;
   }
+  renderReviewCta(p);
+}
+
+function renderReviewCta(p){
+  const el = document.getElementById('profile-review-cta');
+  if(!el) return;
+  if(currentUser && currentUser.type==='photographer'){ el.innerHTML=''; return; }
+  el.innerHTML = '<button class="btn btn-gold" id="profile-review-btn" style="width:100%;justify-content:center;">★ Laisser un avis</button>';
+  document.getElementById('profile-review-btn').onclick = ()=> startReviewFromProfile(p);
+}
+
+async function startReviewFromProfile(p){
+  if(!currentUser){ openAuth('client'); return; }
+  const info = (title, text)=>{
+    document.getElementById('overlay').style.display='flex';
+    document.getElementById('modal-body').innerHTML = `<div class="modal-tag client">Laisser un avis</div><h3>${title}</h3><p style="color:var(--ink-soft);font-size:14px;line-height:1.6;margin:0 0 18px;">${text}</p><button class="modal-submit client" onclick="closeAuth()">Fermer</button>`;
+  };
+  // Aucune limite : un client peut laisser autant d'avis qu'il veut (avis libre, sans réservation rattachée)
+  openReviewForm('', p.id, p.name);
 }
 
 function closeProfile(){
@@ -650,23 +669,21 @@ function openReviewForm(bookingId, photographerId, photographerName){
     <button class="modal-submit client" onclick="submitReview('${bookingId}','${photographerId}')">Publier l'avis</button>
   `;
   const picker = document.getElementById('star-picker');
-  picker.onmousemove = (e)=>{
+  const paint = n => { picker.textContent = '★'.repeat(n) + '☆'.repeat(5-n); };
+  const pick = (e)=>{
+    const pt = (e.touches && e.touches[0]) || e;
     const rect = picker.getBoundingClientRect();
-    const ratio = (e.clientX - rect.left) / rect.width;
-    const n = Math.max(1, Math.min(5, Math.ceil(ratio*5)));
-    picker.textContent = '★'.repeat(n) + '☆'.repeat(5-n);
+    return Math.max(1, Math.min(5, Math.ceil(((pt.clientX - rect.left) / rect.width)*5)));
   };
-  picker.onclick = (e)=>{
-    const rect = picker.getBoundingClientRect();
-    const ratio = (e.clientX - rect.left) / rect.width;
-    selectedRating = Math.max(1, Math.min(5, Math.ceil(ratio*5)));
-  };
+  picker.onmousemove = (e)=> paint(pick(e));
+  picker.onmouseleave = ()=> paint(selectedRating);
+  picker.onclick = (e)=>{ selectedRating = pick(e); paint(selectedRating); };
 }
 
 async function submitReview(bookingId, photographerId){
   const comment = document.getElementById('review-comment').value;
   const { error } = await supabase.from('reviews').insert({
-    booking_request_id: bookingId,
+    booking_request_id: bookingId || null,
     photographer_id: photographerId,
     client_id: currentUser.id,
     client_name: currentUser.name,
