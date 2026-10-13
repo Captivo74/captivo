@@ -714,7 +714,7 @@ function setAdminTab(tab){
 
 // Tenir cette liste à jour : chaque fois qu'une page ville est réellement
 // déposée sur GitHub, ajoute son nom ici pour qu'elle ne soit plus proposée.
-var EXISTING_CITY_PAGES = ['Annecy', 'Chambéry', 'Annemasse', 'Thonon-les-Bains', 'Grenoble', 'Lyon', 'Genève', 'Aix-les-Bains', 'Chablais', 'Belfort', 'Lens'];
+var EXISTING_CITY_PAGES = ['Annecy', 'Chambéry', 'Annemasse', 'Thonon-les-Bains', 'Grenoble', 'Lyon', 'Genève', 'Aix-les-Bains', 'Chablais', 'Belfort', 'Lens', 'Pas-de-Calais'];
 
 function slugifyCity(name){
   return name.toLowerCase()
