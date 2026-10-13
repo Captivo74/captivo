@@ -426,6 +426,9 @@ async function submitReportProfile(e){
 var pendingBooking = null; // { name, slot }
 var currentProfile = null;
 
+// Masque la zone de recherche (hero) quand on consulte un profil, la réaffiche sinon
+function setHeroVisible(v){ const h=document.querySelector('.hero'); if(h) h.style.display = v ? '' : 'none'; }
+
 async function showProfilePage(name){
   const p = photographers.find(x=>x.name===name);
   if(!p) return;
@@ -434,6 +437,8 @@ async function showProfilePage(name){
   document.getElementById('home-content').style.display='none';
   document.getElementById('results-view').style.display='none';
   document.getElementById('profile-view').style.display='block';
+  setHeroVisible(false);
+  window.scrollTo(0,0);
   document.getElementById('profile-banner').style.background = `linear-gradient(120deg, var(--navy-950), ${p.color.match(/#([0-9A-Fa-f]{6})/)[0]})`;
   document.getElementById('profile-avatar').style.background = p.color;
   document.getElementById('profile-avatar').textContent = p.initials;
@@ -520,6 +525,7 @@ async function startReviewFromProfile(p){
 
 function closeProfile(){
   document.getElementById('profile-view').style.display='none';
+  setHeroVisible(true);
   if(lastMainView==='results'){
     document.getElementById('home-content').style.display='none';
     document.getElementById('results-view').style.display='block';
@@ -854,6 +860,7 @@ function showHome(){
 
 function goHome(){
   document.getElementById('profile-view').style.display='none';
+  setHeroVisible(true);
   document.getElementById('pro-dashboard').style.display='none';
   document.getElementById('q-name').value='';
   document.getElementById('q-city').value='';
@@ -1245,6 +1252,7 @@ async function openDashboard(){
   document.getElementById('home-content').style.display='none';
   document.getElementById('results-view').style.display='none';
   document.getElementById('profile-view').style.display='none';
+  setHeroVisible(true);
   document.getElementById('pro-dashboard').style.display='block';
   const p = currentUser.photographerRef;
   document.getElementById('dash-avatar').style.background = p.color;
