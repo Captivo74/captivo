@@ -586,3 +586,13 @@
   .sc-add button.sc-add-btn:hover{background:var(--navy-900);}
   .sc-error{display:none;color:#B23A3A;font-size:13px;font-weight:600;margin-top:8px;}
   .sc-note{font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;line-height:1.5;}
+
+  /* ---------- Photo de profil ---------- */
+  .pcard .cover .avatar-chip{position:absolute;left:14px;bottom:-22px;width:52px;height:52px;border-radius:50%;border:3px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,0.18);}
+  .pcard .cover ~ .body{padding-top:28px;}
+  .profile-avatar{background-size:cover;background-position:center;overflow:hidden;}
+  .avatar-edit{display:flex;align-items:center;gap:16px;margin:0 0 20px;flex-wrap:wrap;}
+  .avatar-edit-preview{width:84px;height:84px;border-radius:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Fraunces';font-style:italic;font-size:30px;color:#fff;overflow:hidden;}
+  .avatar-btn{padding:10px 16px;border-radius:10px;background:var(--blue-700);color:#fff;font-weight:600;font-size:13.5px;margin-right:8px;}
+  .avatar-btn:hover{background:var(--navy-900);}
+  .avatar-btn.avatar-remove{background:none;color:#B23A3A;padding:10px 6px;}

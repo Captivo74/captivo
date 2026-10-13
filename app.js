@@ -42,6 +42,7 @@ function mapDbPhotographer(row){
     id: row.id, user_id: row.user_id, name: row.name, city: row.city, style: row.style,
     styles: (row.styles && row.styles.length) ? row.styles : [row.style],
     rate: row.rate, prices: row.prices || {}, rating: row.rating, bio: row.bio, initials: row.initials, color: row.color,
+    avatar_url: row.avatar_url || null,
     verification_status: row.verification_status || 'unverified',
     verification_siret: row.verification_siret || '',
     verification_note: row.verification_note || '',
@@ -344,7 +345,7 @@ function renderResults(list, label){
     card.className='pcard';
     card.style.animationDelay = (i*0.05)+'s';
     card.innerHTML = `
-      <div class="cover" style="${p.cover_photo ? `background-image:url('${p.cover_photo}');background-size:cover;background-position:center;` : `background:${p.color}`}">${p.cover_photo ? '' : p.initials}<div class="badge">★ ${p.rating}${p.review_count ? ` (${p.review_count})` : ''}</div></div>
+      <div class="cover" style="${p.cover_photo ? `background-image:url('${p.cover_photo}');background-size:cover;background-position:center;` : `background:${p.color}`}">${p.cover_photo ? '' : p.initials}<div class="badge">★ ${p.rating}${p.review_count ? ` (${p.review_count})` : ''}</div>${p.avatar_url ? `<div class="avatar-chip" style="background:url('${p.avatar_url}') center/cover no-repeat;"></div>` : ''}</div>
       <div class="body">
         <p class="name">${escapeHtml(p.name)}${p.verification_status==='verified' ? ' <span class="verified-badge" title="Identité vérifiée">✓ Vérifié</span>' : ''}</p>
         <p class="city">📍 ${escapeHtml(p.city)} — ${escapeHtml(formatStyles(p.styles))}</p>
@@ -429,6 +430,17 @@ var currentProfile = null;
 // Masque la zone de recherche (hero) quand on consulte un profil, la réaffiche sinon
 function setHeroVisible(v){ const h=document.querySelector('.hero'); if(h) h.style.display = v ? '' : 'none'; }
 
+// Affiche la photo de profil (ou les initiales sur fond de couleur si pas de photo)
+function setAvatarEl(el, p){
+  if(p.avatar_url){
+    el.style.background = `url('${p.avatar_url}') center/cover no-repeat`;
+    el.textContent = '';
+  } else {
+    el.style.background = p.color;
+    el.textContent = p.initials;
+  }
+}
+
 function mapSlot(s){
   return { id:s.id, label:s.label, slot_date:s.slot_date, style:s.style || null, slot_time:s.slot_time || null, booked:!!s.booked };
 }
@@ -454,8 +466,7 @@ async function showProfilePage(name){
   setHeroVisible(false);
   window.scrollTo(0,0);
   document.getElementById('profile-banner').style.background = `linear-gradient(120deg, var(--navy-950), ${p.color.match(/#([0-9A-Fa-f]{6})/)[0]})`;
-  document.getElementById('profile-avatar').style.background = p.color;
-  document.getElementById('profile-avatar').textContent = p.initials;
+  setAvatarEl(document.getElementById('profile-avatar'), p);
   document.getElementById('profile-name').innerHTML = escapeHtml(p.name) + (p.verification_status==='verified' ? ' <span class="verified-badge" title="Identité vérifiée">✓ Vérifié</span>' : '');
   document.getElementById('profile-bio').textContent = p.bio;
   document.getElementById('profile-meta').textContent = `📍 ${p.city} — ${formatStyles(p.styles)} · ★ ${p.rating}`;
@@ -1278,8 +1289,7 @@ async function openDashboard(){
   setHeroVisible(true);
   document.getElementById('pro-dashboard').style.display='block';
   const p = currentUser.photographerRef;
-  document.getElementById('dash-avatar').style.background = p.color;
-  document.getElementById('dash-avatar').textContent = p.initials;
+  setAvatarEl(document.getElementById('dash-avatar'), p);
   document.getElementById('dash-name').textContent = p.name;
   document.getElementById('dash-meta').textContent = `📍 ${p.city} — ${formatStyles(p.styles)}`;
   document.querySelectorAll('.dash-tab').forEach(t=>{
@@ -1489,6 +1499,15 @@ function renderDashProfile(p){
   return `<div class="dash-card">
     <h3>Mon profil public</h3>
     <p class="hint">Ces informations sont visibles par les clients sur votre fiche et dans les résultats de recherche.</p>
+    <div class="avatar-edit">
+      <div class="avatar-edit-preview" id="avatar-preview"></div>
+      <div>
+        <button type="button" class="avatar-btn" id="avatar-change-btn">${p.avatar_url ? 'Changer la photo de profil' : 'Ajouter une photo de profil'}</button>
+        ${p.avatar_url ? '<button type="button" class="avatar-btn avatar-remove" id="avatar-remove-btn">Retirer</button>' : ''}
+        <input type="file" id="avatar-file" accept="image/*" style="display:none;">
+        <p class="hint" style="margin:6px 0 0;" id="avatar-status">Un visage ou un logo, de préférence carré. JPG ou PNG, 15 Mo max.</p>
+      </div>
+    </div>
     <div class="profile-form">
       <div class="field"><label>Nom complet</label><input type="text" id="pf-name" value="${escapeHtml(p.name)}"></div>
       <div class="field"><label>Secteur d'exercice</label><input type="text" id="pf-city" value="${escapeHtml(p.city)}"></div>
@@ -1748,6 +1767,47 @@ function wireDashEvents(p, tab){
     });
   }
   if(tab==='profil'){
+    setAvatarEl(document.getElementById('avatar-preview'), p);
+    const avStatus = document.getElementById('avatar-status');
+    const avFile = document.getElementById('avatar-file');
+    document.getElementById('avatar-change-btn').onclick = ()=> avFile.click();
+    const oldAvatarPath = ()=>{
+      const marker = '/portfolios/';
+      const idx = (p.avatar_url||'').indexOf(marker);
+      return idx>=0 ? p.avatar_url.slice(idx+marker.length) : null;
+    };
+    avFile.onchange = async ()=>{
+      const file = avFile.files[0];
+      if(!file) return;
+      if(!file.type.startsWith('image/')){ avStatus.style.color='#B23A3A'; avStatus.textContent='Ce fichier n\'est pas une image.'; return; }
+      if(file.size > 15*1024*1024){ avStatus.style.color='#B23A3A'; avStatus.textContent='Fichier trop volumineux (15 Mo max).'; return; }
+      avStatus.style.color='var(--ink-soft)'; avStatus.textContent='Envoi en cours…';
+      let toUpload = file;
+      try{ toUpload = await compressImage(file, 640, 0.85); }catch(e){ console.warn('Compression impossible :', e); }
+      const ext = (toUpload.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = `${p.id}/avatar-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('portfolios').upload(path, toUpload);
+      if(upErr){ avStatus.style.color='#B23A3A'; avStatus.textContent='Erreur : ' + upErr.message; return; }
+      const { data: urlData } = supabase.storage.from('portfolios').getPublicUrl(path);
+      const { error: dbErr } = await supabase.from('photographers').update({ avatar_url: urlData.publicUrl }).eq('id', p.id);
+      if(dbErr){ avStatus.style.color='#B23A3A'; avStatus.textContent='Erreur : ' + dbErr.message; return; }
+      const old = oldAvatarPath();
+      if(old) await supabase.storage.from('portfolios').remove([old]);
+      p.avatar_url = urlData.publicUrl;
+      setAvatarEl(document.getElementById('dash-avatar'), p);
+      await setDashTab('profil');
+    };
+    const rmBtn = document.getElementById('avatar-remove-btn');
+    if(rmBtn) rmBtn.onclick = async ()=>{
+      rmBtn.disabled = true;
+      const { error } = await supabase.from('photographers').update({ avatar_url: null }).eq('id', p.id);
+      if(error){ avStatus.style.color='#B23A3A'; avStatus.textContent='Erreur : ' + error.message; rmBtn.disabled=false; return; }
+      const old = oldAvatarPath();
+      if(old) await supabase.storage.from('portfolios').remove([old]);
+      p.avatar_url = null;
+      setAvatarEl(document.getElementById('dash-avatar'), p);
+      await setDashTab('profil');
+    };
     document.getElementById('save-profile-btn').onclick = async ()=>{
       const saveBtn = document.getElementById('save-profile-btn');
       const checkedStyles = document.querySelectorAll('input[name="pf-styles"]:checked');
