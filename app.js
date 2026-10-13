@@ -45,7 +45,7 @@ function mapDbPhotographer(row){
     verification_status: row.verification_status || 'unverified',
     verification_siret: row.verification_siret || '',
     verification_note: row.verification_note || '',
-    slots: (row.slots || []).map(s=>({id:s.id, label:s.label, slot_date:s.slot_date}))
+    slots: (row.slots || []).map(mapSlot)
   };
 }
 
@@ -429,6 +429,20 @@ var currentProfile = null;
 // Masque la zone de recherche (hero) quand on consulte un profil, la réaffiche sinon
 function setHeroVisible(v){ const h=document.querySelector('.hero'); if(h) h.style.display = v ? '' : 'none'; }
 
+function mapSlot(s){
+  return { id:s.id, label:s.label, slot_date:s.slot_date, style:s.style || null, slot_time:s.slot_time || null, booked:!!s.booked };
+}
+
+// Libère le créneau lié à une demande (refus, annulation) — passe par une fonction sécurisée de la base
+async function releaseSlotForRequest(req){
+  await supabase.rpc('release_slot', {
+    p_photographer_id: req.photographer_id,
+    p_label: req.slot_label,
+    p_slot_date: req.slot_date || null,
+    p_style: req.style || null
+  });
+}
+
 async function showProfilePage(name){
   const p = photographers.find(x=>x.name===name);
   if(!p) return;
@@ -536,37 +550,46 @@ function closeProfile(){
 
 function renderBookingPanel(p, selectedStyle){
   const styles = Object.keys(styleIcons);
-  const availableSlots = (p.styles || [p.style]).includes(selectedStyle) ? p.slots : [];
+  const offersStyle = (p.styles || [p.style]).includes(selectedStyle);
+  // créneaux valables pour le style choisi (un créneau sans style = tous styles)
+  const styleSlots = offersStyle ? p.slots.filter(s=> s.slot_date && (!s.style || s.style===selectedStyle)) : [];
   const panel = document.getElementById('booking-panel');
   panel.innerHTML = `
     <h3>Réserver un créneau</h3>
-    <p class="sub">Choisissez le type de séance souhaité, puis un créneau disponible.</p>
+    <p class="sub">Choisissez le type de séance souhaité, puis un jour dans le calendrier.</p>
     <div class="field">
       <label>Style de photo souhaité</label>
       <select id="style-select">
         ${styles.map(s=>`<option value="${s}" ${s===selectedStyle?'selected':''}>${s}</option>`).join('')}
       </select>
     </div>
-    ${availableSlots.length ? `
-      <div class="slot-list" id="slot-list"></div>
-    ` : `
+    <div id="client-cal"></div>
+    ${styleSlots.length ? '' : `
       <div class="no-slots">Aucun créneau disponible pour « ${escapeHtml(selectedStyle)} » chez ${escapeHtml(p.name)} pour le moment.</div>
-      <button class="modal-submit client" id="contact-btn">Contacter le photographe</button>
     `}
+    <button class="modal-submit client" id="contact-btn" style="margin-top:14px;">Aucune date ne convient ? Contacter le photographe</button>
   `;
   document.getElementById('style-select').onchange = (e)=> renderBookingPanel(p, e.target.value);
-  if(availableSlots.length){
-    const list = document.getElementById('slot-list');
-    availableSlots.forEach(slot=>{
-      const b = document.createElement('button');
-      b.className='slot-btn';
-      b.textContent = slot.label;
-      b.onclick = ()=> selectSlot(p, slot, selectedStyle);
-      list.appendChild(b);
-    });
-  } else {
-    document.getElementById('contact-btn').onclick = ()=> openContactForm(p, selectedStyle);
-  }
+  document.getElementById('contact-btn').onclick = ()=> openContactForm(p, selectedStyle);
+
+  mountSlotCalendar(document.getElementById('client-cal'), {
+    key: 'client-' + p.id,
+    mode: 'client',
+    getSlots: ()=> styleSlots,
+    renderDetail: (el, dateStr, daySlots)=>{
+      el.innerHTML = `<div class="sc-day-card"><h4>${scLongDate(dateStr)}</h4><div id="sc-day-list"></div></div>`;
+      const list = el.querySelector('#sc-day-list');
+      daySlots.forEach(slot=>{
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'sc-slot sc-pick';
+        b.disabled = !!slot.booked;
+        b.innerHTML = `<span><span class="sc-time">${escapeHtml(scSlotTime(slot) || slot.label)}</span> <span class="sc-style">· ${escapeHtml(slot.style || selectedStyle)}</span></span><span class="sc-state ${slot.booked?'full':'free'}">${slot.booked?'Complet':'Réserver'}</span>`;
+        if(!slot.booked) b.onclick = ()=> selectSlot(p, slot, selectedStyle);
+        list.appendChild(b);
+      });
+    }
+  });
 }
 
 function selectSlot(p, slot, style){
@@ -577,28 +600,28 @@ function selectSlot(p, slot, style){
 }
 
 async function confirmBookingRequest(p, slot, style){
-  const { data, error } = await supabase.from('booking_requests').insert({
-    photographer_id: p.id,
-    client_id: currentUser.id,
-    client_name: currentUser.name,
-    client_email: currentUser.email || '—',
-    style, slot_label: slot.label, slot_date: slot.slot_date || null, status:'pending', client_notified:true
-  }).select().single();
+  const { data, error } = await supabase.rpc('request_booking', {
+    p_slot_id: slot.id,
+    p_client_name: currentUser.name,
+    p_client_email: currentUser.email || '—',
+    p_style: style
+  });
 
   if(error){
+    const taken = /slot_unavailable/.test(error.message || '');
+    if(taken){ await fetchPhotographerSlots(p); if(document.getElementById('profile-view').style.display==='block' && currentProfile===p) renderBookingPanel(p, style); }
     document.getElementById('overlay').style.display='flex';
     document.getElementById('modal-body').innerHTML = `
-      <div class="modal-tag client">Erreur</div>
-      <h3>La demande n'a pas pu être envoyée</h3>
-      <p style="color:var(--ink-soft);font-size:14px;line-height:1.6;">${error.message}</p>
+      <div class="modal-tag client">${taken ? 'Créneau indisponible' : 'Erreur'}</div>
+      <h3>${taken ? 'Ce créneau vient d\'être pris' : 'La demande n\'a pas pu être envoyée'}</h3>
+      <p style="color:var(--ink-soft);font-size:14px;line-height:1.6;">${taken ? 'Quelqu\'un vient de réserver ce créneau. Choisissez-en un autre dans le calendrier.' : escapeHtml(error.message)}</p>
       <button class="modal-submit client" onclick="closeAuth()">Fermer</button>
     `;
     return;
   }
 
   trackEvent('Demande de réservation');
-  await supabase.from('slots').delete().eq('id', slot.id);
-  p.slots = p.slots.filter(s=>s.id!==slot.id);
+  slot.booked = true;
   if(document.getElementById('profile-view').style.display==='block' && currentProfile===p){
     renderBookingPanel(p, style);
   }
@@ -725,7 +748,7 @@ async function cancelBookingNow(reqId){
   const { data: req } = await supabase.from('booking_requests').select('*').eq('id', reqId).single();
   await supabase.from('booking_requests').update({ status:'cancelled_by_client' }).eq('id', reqId);
   if(req){
-    await supabase.from('slots').insert({ photographer_id: req.photographer_id, label: req.slot_label, slot_date: req.slot_date || null });
+    await releaseSlotForRequest(req);
   }
   await openClientBookings();
 }
@@ -1272,7 +1295,7 @@ function showPublicPreview(){
 
 async function fetchPhotographerSlots(p){
   const { data } = await supabase.from('slots').select('*').eq('photographer_id', p.id).order('created_at');
-  p.slots = (data || []).map(s=>({id:s.id, label:s.label, slot_date:s.slot_date}));
+  p.slots = (data || []).map(mapSlot);
 }
 async function fetchPhotographerRequests(p){
   const { data } = await supabase.from('booking_requests').select('*').eq('photographer_id', p.id).order('created_at', {ascending:false});
@@ -1335,7 +1358,7 @@ function renderDashOverview(p){
       </div>
     ` : ''}
     <div class="dash-stats">
-      <div class="stat-card"><div class="val">${p.slots.length}</div><div class="lbl">Créneaux publiés</div></div>
+      <div class="stat-card"><div class="val">${p.slots.filter(s=>!s.booked).length}</div><div class="lbl">Créneaux disponibles</div></div>
       <div class="stat-card"><div class="val">${pending.length}</div><div class="lbl">Demandes en attente</div></div>
       <div class="stat-card"><div class="val">${confirmed}</div><div class="lbl">Réservations confirmées</div></div>
       <div class="stat-card"><div class="val">${unreadMsg}</div><div class="lbl">Messages non lus</div></div>
@@ -1343,7 +1366,7 @@ function renderDashOverview(p){
     <div class="profile-grid" style="grid-template-columns:1fr 1fr;margin-top:16px;">
       <div class="dash-card" style="margin:0;">
         <h3>Prochains créneaux disponibles</h3>
-        ${p.slots.length ? `<div>${p.slots.slice(0,4).map(s=>`<div class="slot-row-item" style="cursor:default;"><span>${s.label}</span></div>`).join('')}</div>`
+        ${p.slots.filter(s=>!s.booked).length ? `<div>${p.slots.filter(s=>!s.booked).slice(0,4).map(s=>`<div class="slot-row-item" style="cursor:default;"><span>${s.label}</span></div>`).join('')}</div>`
           : `<div class="empty-state">Aucun créneau publié. <a href="#" onclick="setDashTab('agenda');return false;" style="color:var(--blue-600);font-weight:600;">En ajouter un</a></div>`}
       </div>
       <div class="dash-card" style="margin:0;">
@@ -1361,22 +1384,18 @@ function renderDashOverview(p){
 }
 
 function renderDashAgenda(p){
-  const today = new Date().toISOString().split('T')[0];
+  const free = p.slots.filter(s=>!s.booked).length;
+  const undated = p.slots.filter(s=>!s.slot_date);
   return `
     <div class="dash-card">
       <h3>Mon agenda</h3>
-      <p class="hint">Ajoutez les créneaux où vous êtes disponible pour une séance — ils apparaissent immédiatement sur votre profil public. ${p.slots.length} créneau${p.slots.length>1?'x':''} publié${p.slots.length>1?'s':''} actuellement.</p>
-      <div class="add-slot-row">
-        <div class="field"><label>Date</label><input type="date" id="new-slot-date" min="${today}"></div>
-        <div class="field"><label>Heure</label><input type="time" id="new-slot-time"></div>
-        <button id="add-slot-btn">+ Ajouter le créneau</button>
-      </div>
-      <div id="slot-error" style="display:none;color:#B23A3A;font-size:13px;font-weight:600;margin:-10px 0 14px;"></div>
-      <div id="slot-list-dash">
-        ${p.slots.length ? p.slots.map(s=>`
-          <div class="slot-row-item"><span>${s.label}</span><button class="rm" data-slot-id="${s.id}">Supprimer</button></div>
-        `).join('') : `<div class="empty-state">Aucun créneau publié pour l'instant.</div>`}
-      </div>
+      <p class="hint">Choisissez un mois, puis cliquez sur un jour pour y ajouter des créneaux : indiquez l'heure et le style de photo concerné. Ils apparaissent immédiatement sur votre profil public. ${free} créneau${free>1?'x':''} disponible${free>1?'s':''} actuellement.</p>
+      <div id="agenda-cal"></div>
+      ${undated.length ? `
+        <h3 style="margin-top:22px;">Anciens créneaux sans date</h3>
+        <p class="hint">Ces créneaux ne peuvent pas apparaître dans le calendrier. Supprimez-les et recréez-les depuis le calendrier.</p>
+        ${undated.map(s=>`<div class="slot-row-item"><span>${escapeHtml(s.label)}</span><button class="rm" data-undated-slot="${s.id}">Supprimer</button></div>`).join('')}
+      ` : ''}
     </div>
   `;
 }
@@ -1576,7 +1595,7 @@ async function submitDecline(e, reqId){
 
   if(!error && req){
     const p = currentUser.photographerRef;
-    await supabase.from('slots').insert({ photographer_id: p.id, label: req.slot_label, slot_date: req.slot_date || null });
+    await releaseSlotForRequest(req);
     await fetchPhotographerSlots(p);
   }
   closeAuth();
@@ -1584,34 +1603,67 @@ async function submitDecline(e, reqId){
   return false;
 }
 
+function renderAgendaDay(el, p, dateStr, daySlots, redraw){
+  const styles = (p.styles && p.styles.length ? p.styles : [p.style]).filter(Boolean);
+  el.innerHTML = `
+    <div class="sc-day-card">
+      <h4>${scLongDate(dateStr)}</h4>
+      <div id="sc-day-list">
+        ${daySlots.length ? daySlots.map(s=>`
+          <div class="sc-slot">
+            <span><span class="sc-time">${escapeHtml(scSlotTime(s) || s.label)}</span> <span class="sc-style">· ${escapeHtml(s.style || 'Tous styles')}</span></span>
+            <span style="display:flex;align-items:center;gap:6px;">
+              <span class="sc-state ${s.booked?'full':'free'}">${s.booked?'Réservé':'Disponible'}</span>
+              ${s.booked ? '' : `<button type="button" class="rm" data-del-slot="${s.id}">Supprimer</button>`}
+            </span>
+          </div>`).join('') : '<p class="sc-note">Aucun créneau ce jour-là. Ajoutez-en un ci-dessous.</p>'}
+      </div>
+      <div class="sc-add">
+        <div class="field"><label>Heure</label><input type="time" id="sc-new-time"></div>
+        <div class="field"><label>Style de photo</label>
+          <select id="sc-new-style"><option value="">Choisir…</option>${styles.map(s=>`<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}</select>
+        </div>
+        <button type="button" class="sc-add-btn" id="sc-add-btn">+ Ajouter ce créneau</button>
+      </div>
+      <div class="sc-error" id="sc-error"></div>
+    </div>`;
+  const errEl = el.querySelector('#sc-error');
+  const showErr = m => { errEl.textContent = m; errEl.style.display = 'block'; };
+
+  el.querySelector('#sc-add-btn').onclick = async ()=>{
+    const t = el.querySelector('#sc-new-time').value;
+    const style = el.querySelector('#sc-new-style').value;
+    if(!t) return showErr("Choisissez une heure.");
+    if(!style) return showErr("Choisissez le style de photo pour ce créneau.");
+    const label = formatSlotLabel(dateStr, t);
+    if(p.slots.some(s=>s.label===label && s.style===style)) return showErr("Ce créneau existe déjà dans votre agenda.");
+    const btn = el.querySelector('#sc-add-btn'); btn.disabled = true;
+    const { error } = await supabase.from('slots').insert({ photographer_id: p.id, label, slot_date: dateStr, slot_time: t, style, booked:false });
+    if(error){ btn.disabled = false; return showErr("Erreur : " + error.message); }
+    await fetchPhotographerSlots(p);
+    redraw();
+  };
+  el.querySelectorAll('[data-del-slot]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      btn.disabled = true;
+      await supabase.from('slots').delete().eq('id', btn.dataset.delSlot);
+      await fetchPhotographerSlots(p);
+      redraw();
+    };
+  });
+}
+
 function wireDashEvents(p, tab){
   if(tab==='agenda'){
-    document.getElementById('add-slot-btn').onclick = async ()=>{
-      const d = document.getElementById('new-slot-date').value;
-      const t = document.getElementById('new-slot-time').value;
-      const errorEl = document.getElementById('slot-error');
-      if(!d || !t){
-        errorEl.textContent = "Choisissez une date et une heure.";
-        errorEl.style.display='block';
-        return;
-      }
-      const label = formatSlotLabel(d, t);
-      if(p.slots.some(s=>s.label===label)){
-        errorEl.textContent = "Ce créneau existe déjà dans votre agenda.";
-        errorEl.style.display='block';
-        return;
-      }
-      const { error } = await supabase.from('slots').insert({ photographer_id: p.id, label, slot_date: d });
-      if(error){
-        errorEl.textContent = "Erreur : " + error.message;
-        errorEl.style.display='block';
-        return;
-      }
-      await setDashTab('agenda');
-    };
-    document.querySelectorAll('#slot-list-dash [data-slot-id]').forEach(btn=>{
+    mountSlotCalendar(document.getElementById('agenda-cal'), {
+      key: 'agenda-' + p.id,
+      mode: 'photographer',
+      getSlots: ()=> p.slots,
+      renderDetail: (el, dateStr, daySlots, redraw)=> renderAgendaDay(el, p, dateStr, daySlots, redraw)
+    });
+    document.querySelectorAll('[data-undated-slot]').forEach(btn=>{
       btn.onclick = async ()=>{
-        await supabase.from('slots').delete().eq('id', btn.dataset.slotId);
+        await supabase.from('slots').delete().eq('id', btn.dataset.undatedSlot);
         await setDashTab('agenda');
       };
     });
@@ -1633,7 +1685,7 @@ function wireDashEvents(p, tab){
         btn.disabled = true;
         const req = dashRequestsCache.find(x=>x.id===btn.dataset.cancel);
         await supabase.from('booking_requests').update({ status:'cancelled_by_photographer', client_notified:false }).eq('id', btn.dataset.cancel);
-        if(req) await supabase.from('slots').insert({ photographer_id: p.id, label: req.slot_label, slot_date: req.slot_date || null });
+        if(req) await releaseSlotForRequest(req);
         await fetchPhotographerSlots(p);
         await setDashTab('demandes');
       };

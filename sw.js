@@ -7,11 +7,12 @@
 // ancienne version du site reste bloquée dans le cache du visiteur
 // après une mise à jour (c'était le bug de la v1).
 
-const CACHE_NAME = 'captivo-cache-v2';
+const CACHE_NAME = 'captivo-cache-v3';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
   '/styles.css',
+  '/slot-calendar.js',
   '/app.js',
   '/cookie-consent.js',
   '/assets/logo.png',

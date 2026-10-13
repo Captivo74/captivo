@@ -537,3 +537,52 @@
   .maintenance-progress{height:6px;background:var(--ice-100);border-radius:100px;overflow:hidden;margin-bottom:10px;}
   .maintenance-progress-bar{width:70%;height:100%;background:linear-gradient(90deg,var(--blue-700),var(--gold-500));border-radius:100px;}
   .maintenance-progress-label{font-size:11.5px;color:#8A8378;font-weight:600;}
+
+  /* ---------- Calendrier des créneaux ---------- */
+  .sc-wrap{width:100%;min-width:0;}
+  .sc-year{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:10px;font-size:15px;color:var(--ink);}
+  .sc-nav{width:32px;height:32px;border-radius:50%;background:var(--ice-100);color:var(--ink);font-size:18px;line-height:1;font-weight:700;}
+  .sc-nav:hover{background:var(--gold-100);}
+  .sc-chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;margin-bottom:6px;-webkit-overflow-scrolling:touch;scrollbar-width:thin;}
+  .sc-chip{flex:0 0 auto;padding:6px 12px;border-radius:100px;background:var(--ice-100);color:var(--ink-soft);font-size:12.5px;font-weight:600;}
+  .sc-chip.active{background:var(--blue-700);color:#fff;}
+  .sc-month-title{font-family:'Fraunces',serif;font-size:18px;font-weight:600;color:var(--ink);margin:4px 0 10px;}
+  .sc-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;}
+  .sc-head div{text-align:center;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;padding-bottom:2px;}
+  .sc-cell{position:relative;aspect-ratio:1/1;min-width:0;border-radius:10px;border:1px solid transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:13.5px;font-weight:600;padding:0;}
+  .sc-empty{visibility:hidden;}
+  .sc-none{background:#F1EFF3;color:#B4AFC0;}
+  .sc-free{background:#fff;border-color:var(--line-dark);color:var(--ink);cursor:pointer;}
+  .sc-free:hover{border-color:#16A34A;}
+  .sc-full{background:#FDE4E1;border-color:#E5392B;color:#B3261E;cursor:pointer;}
+  .sc-past{opacity:.45;cursor:not-allowed;}
+  .sc-today span{text-decoration:underline;text-underline-offset:3px;}
+  .sc-selected{box-shadow:0 0 0 2px var(--blue-700);}
+  button.sc-none:not(:disabled){cursor:pointer;}
+  button.sc-none:not(:disabled):hover{background:#E8E4EE;}
+  .sc-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#16A34A;}
+  .sc-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:12px 0 4px;font-size:12px;color:var(--ink-soft);}
+  .sc-legend span{display:inline-flex;align-items:center;gap:6px;}
+  .sc-sw{display:inline-block;width:12px;height:12px;border-radius:4px;}
+  .sc-sw-full{background:#FDE4E1;border:1px solid #E5392B;}
+  .sc-sw-none{background:#F1EFF3;border:1px solid #DAD6E0;}
+  .sc-detail{margin-top:14px;}
+  .sc-detail:empty{display:none;}
+  .sc-day-card{background:var(--ice-100);border-radius:14px;padding:14px;}
+  .sc-day-card h4{margin:0 0 10px;font-size:14px;color:var(--ink);text-transform:capitalize;}
+  .sc-slot{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fff;border:1px solid var(--line-dark);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13.5px;}
+  .sc-slot .sc-time{font-weight:700;color:var(--ink);}
+  .sc-slot .sc-style{color:var(--ink-soft);font-size:12.5px;}
+  .sc-slot .sc-state{font-size:11.5px;font-weight:700;border-radius:100px;padding:3px 9px;}
+  .sc-slot .sc-state.free{background:#DCFCE7;color:#166534;}
+  .sc-slot .sc-state.full{background:#FDE4E1;color:#B3261E;}
+  .sc-slot .rm{color:#B23A3A;font-weight:700;font-size:12.5px;background:none;padding:4px 6px;}
+  .sc-pick{width:100%;text-align:left;cursor:pointer;}
+  .sc-pick:hover:not(:disabled){border-color:#16A34A;background:#F0FDF4;}
+  .sc-pick:disabled{opacity:.55;cursor:not-allowed;}
+  .sc-add{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:10px;margin-top:10px;}
+  .sc-add .field{margin:0;}
+  .sc-add button.sc-add-btn{grid-column:1/-1;padding:11px 18px;border-radius:10px;background:var(--blue-700);color:#fff;font-weight:600;font-size:13.5px;}
+  .sc-add button.sc-add-btn:hover{background:var(--navy-900);}
+  .sc-error{display:none;color:#B23A3A;font-size:13px;font-weight:600;margin-top:8px;}
+  .sc-note{font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;line-height:1.5;}
